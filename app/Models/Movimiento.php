@@ -19,7 +19,7 @@ class Movimiento extends Model
         'tipo',
         'referencia',
         'descripcion',
-        'hash'
+        'hash',
     ];
 
     protected $casts = [

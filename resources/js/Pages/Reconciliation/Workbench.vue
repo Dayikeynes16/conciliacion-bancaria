@@ -45,6 +45,9 @@ const toggleMovement = (id: number) => {
     }
 };
 
+const processing = ref(false);
+const autoReconciling = ref(false);
+
 const totalInvoices = computed(() => {
     return props.invoices
         .filter((i) => selectedInvoices.value.includes(i.id))
@@ -58,14 +61,15 @@ const totalMovements = computed(() => {
 });
 
 const diff = computed(() =>
-    Math.abs(totalInvoices.value - totalMovements.value),
+    totalMovements.value - totalInvoices.value,
 );
 const isMatchable = computed(
     () =>
         selectedInvoices.value.length > 0 && selectedMovements.value.length > 0,
 );
 
-const reconcile = () => {
+const reconcileSelection = () => {
+    processing.value = true;
     router.post(
         route("reconciliation.store"),
         {
@@ -77,186 +81,188 @@ const reconcile = () => {
                 selectedInvoices.value = [];
                 selectedMovements.value = [];
             },
+            onFinish: () => {
+                processing.value = false;
+            }
         },
     );
 };
 
+const formatDate = (dateString: string) => {
+    if (!dateString) return '';
+    const d = new Date(dateString);
+    const userTimezoneOffset = d.getTimezoneOffset() * 60000;
+    const adjustedDate = new Date(d.getTime() + userTimezoneOffset);
+    return adjustedDate.toLocaleDateString('es-MX', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+    });
+};
+
+const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('es-MX', {
+        style: 'currency',
+        currency: 'MXN',
+    }).format(amount);
+};
+
 const autoReconcile = () => {
-    router.post(route("reconciliation.auto"));
+    autoReconciling.value = true;
+    router.post(route("reconciliation.auto"), {}, {
+        onFinish: () => {
+            autoReconciling.value = false;
+        }
+    });
 };
 </script>
 
 <template>
-    <Head title="Mesa de Conciliación" />
+    <Head title="Mesa de Trabajo" />
 
     <AuthenticatedLayout>
         <template #header>
             <div class="flex justify-between items-center">
-                <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-                    Mesa de Trabajor (Workbench)
-                </h2>
-                <button
+                <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">Mesa de Trabajo</h2>
+                
+                <button 
                     @click="autoReconcile"
-                    class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded"
+                    :disabled="autoReconciling"
+                    class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded shadow flex items-center gap-2 disabled:opacity-50"
                 >
-                    Auto Conciliar (Magia)
+                    <svg v-if="autoReconciling" class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span v-if="autoReconciling">Conciliando...</span>
+                    <!-- Basic wand icon -->
+                    <span v-else>Auto Conciliar (Magia)</span>
                 </button>
             </div>
         </template>
 
         <div class="py-12">
             <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
-                <!-- Matcher Controls -->
-                <div
-                    class="bg-white overflow-hidden shadow-sm sm:rounded-lg mb-6 p-4 sticky top-0 z-10 border-b border-gray-200"
-                >
-                    <div class="flex justify-between items-center">
-                        <div class="flex gap-8">
-                            <div>
-                                <span class="text-sm text-gray-500"
-                                    >Selected Invoices:</span
-                                >
-                                <div class="text-2xl font-bold">
-                                    ${{ totalInvoices.toFixed(2) }}
-                                </div>
-                            </div>
-                            <div>
-                                <span class="text-sm text-gray-500"
-                                    >Selected Movements:</span
-                                >
-                                <div class="text-2xl font-bold">
-                                    ${{ totalMovements.toFixed(2) }}
-                                </div>
-                            </div>
-                            <div>
-                                <span class="text-sm text-gray-500"
-                                    >Difference:</span
-                                >
-                                <div
-                                    :class="{
-                                        'text-green-600': diff === 0,
-                                        'text-red-500': diff > 0,
-                                    }"
-                                    class="text-2xl font-bold"
-                                >
-                                    ${{ diff.toFixed(2) }}
-                                </div>
-                            </div>
+                
+                <!-- Selection Summary Bar -->
+                <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg mb-6 sticky top-0 z-10 p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+                    <div class="flex gap-8">
+                        <div>
+                            <span class="block text-xs text-gray-500 uppercase">Facturas Seleccionadas:</span>
+                            <span class="text-xl font-bold font-mono dark:text-white">{{ formatCurrency(totalInvoices) }}</span>
                         </div>
-                        <button
-                            @click="reconcile"
-                            :disabled="!isMatchable"
-                            class="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white font-bold py-2 px-6 rounded shadow-lg transition"
-                        >
-                            Conciliar Selection
-                        </button>
+                        <div>
+                            <span class="block text-xs text-gray-500 uppercase">Movimientos Seleccionados:</span>
+                            <span class="text-xl font-bold font-mono dark:text-white">{{ formatCurrency(totalMovements) }}</span>
+                        </div>
+                        <div>
+                            <span class="block text-xs text-gray-500 uppercase">Diferencia:</span>
+                            <span 
+                                class="text-xl font-bold font-mono"
+                                :class="{
+                                    'text-green-600': diff > -0.01,
+                                    'text-red-600': diff <= -0.01
+                                }"
+                            >
+                                {{ formatCurrency(diff) }}
+                            </span>
+                        </div>
                     </div>
+
+                    <PrimaryButton 
+                        @click="reconcileSelection" 
+                        :disabled="selectedInvoices.length === 0 || selectedMovements.length === 0 || processing"
+                    >
+                        Conciliar Selección
+                    </PrimaryButton>
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <!-- Invoices Column -->
-                    <div
-                        class="bg-white overflow-hidden shadow-sm sm:rounded-lg"
-                    >
-                        <div class="p-6 text-gray-900">
-                            <h3 class="text-lg font-bold mb-4">
-                                Facturas Pendientes
-                            </h3>
-                            <div
-                                class="space-y-2 max-h-[600px] overflow-y-auto"
-                            >
-                                <div
-                                    v-for="invoice in invoices"
-                                    :key="invoice.id"
-                                    @click="toggleInvoice(invoice.id)"
-                                    class="p-3 border rounded cursor-pointer hover:bg-gray-50 transition flex justify-between items-center"
-                                    :class="{
-                                        'ring-2 ring-indigo-500 bg-indigo-50':
-                                            selectedInvoices.includes(
-                                                invoice.id,
-                                            ),
-                                    }"
-                                >
+                    
+                    <!-- Left Column: Invoices -->
+                    <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg flex flex-col h-[700px]">
+                        <div class="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 font-semibold text-gray-700 dark:text-gray-300">
+                            Facturas Pendientes
+                        </div>
+                        
+                        <div class="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
+                           <div v-if="invoices.length === 0" class="text-center text-gray-500 py-10">
+                                No hay facturas pendientes.
+                           </div> 
+                           
+                           <div 
+                                v-for="invoice in invoices" 
+                                :key="invoice.id"
+                                @click="toggleInvoice(invoice.id)"
+                                class="p-3 border rounded-lg cursor-pointer transition-colors relative hover:shadow-md"
+                                :class="{
+                                    'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 ring-1 ring-indigo-500': selectedInvoices.includes(invoice.id),
+                                    'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800': !selectedInvoices.includes(invoice.id)
+                                }"
+                           >
+                                <div class="flex justify-between items-start">
                                     <div>
-                                        <div class="font-bold">
-                                            {{ invoice.nombre }}
-                                        </div>
-                                        <div class="text-xs text-gray-500">
-                                            {{ invoice.fecha_emision }}
-                                        </div>
-                                        <div
-                                            class="text-xs text-gray-400 truncate w-32"
-                                        >
-                                            {{ invoice.uuid }}
+                                        <div class="font-bold text-gray-800 dark:text-gray-200 text-sm">{{ invoice.nombre }}</div>
+                                        <div class="text-xs text-gray-500 mt-1">{{ formatDate(invoice.fecha_emision) }}</div>
+                                        <div class="text-xs text-gray-400 font-mono mt-0.5 truncate w-48" :title="invoice.uuid">
+                                            {{ invoice.uuid.substring(0, 18) }}..
                                         </div>
                                     </div>
-                                    <div
-                                        class="font-mono font-bold text-indigo-700"
-                                    >
-                                        ${{ Number(invoice.monto).toFixed(2) }}
+                                    <div class="text-right">
+                                        <div class="font-bold text-indigo-600 dark:text-indigo-400">{{ formatCurrency(invoice.monto) }}</div>
                                     </div>
                                 </div>
-                                <div
-                                    v-if="invoices.length === 0"
-                                    class="text-center text-gray-500 py-8"
-                                >
-                                    No hay facturas pendientes.
+                                
+                                <!-- Checkmark indicator -->
+                                <div v-if="selectedInvoices.includes(invoice.id)" class="absolute top-2 right-2 h-4 w-4 bg-indigo-600 rounded-full flex items-center justify-center">
+                                    <svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
                                 </div>
-                            </div>
+                           </div>
                         </div>
                     </div>
 
-                    <!-- Movements Column -->
-                    <div
-                        class="bg-white overflow-hidden shadow-sm sm:rounded-lg"
-                    >
-                        <div class="p-6 text-gray-900">
-                            <h3 class="text-lg font-bold mb-4">
-                                Movimientos Bancarios
-                            </h3>
-                            <div
-                                class="space-y-2 max-h-[600px] overflow-y-auto"
-                            >
-                                <div
-                                    v-for="movement in movements"
-                                    :key="movement.id"
-                                    @click="toggleMovement(movement.id)"
-                                    class="p-3 border rounded cursor-pointer hover:bg-gray-50 transition flex justify-between items-center"
-                                    :class="{
-                                        'ring-2 ring-green-500 bg-green-50':
-                                            selectedMovements.includes(
-                                                movement.id,
-                                            ),
-                                    }"
-                                >
-                                    <div>
-                                        <div class="font-bold">
-                                            {{ movement.descripcion }}
-                                        </div>
-                                        <div class="text-xs text-gray-500">
-                                            {{ movement.fecha }}
-                                        </div>
-                                        <div
-                                            class="text-xs text-gray-400 badge bg-gray-100 px-1 rounded"
-                                        >
+                    <!-- Right Column: Movements -->
+                    <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg flex flex-col h-[700px]">
+                        <div class="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 font-semibold text-gray-700 dark:text-gray-300">
+                            Movimientos Bancarios
+                        </div>
+
+                        <div class="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
+                           <div v-if="movements.length === 0" class="text-center text-gray-500 py-10">
+                                No hay movimientos pendientes.
+                           </div> 
+
+                           <div 
+                                v-for="movement in movements" 
+                                :key="movement.id"
+                                @click="toggleMovement(movement.id)"
+                                class="p-3 border rounded-lg cursor-pointer transition-colors relative hover:shadow-md"
+                                :class="{
+                                    'border-green-500 bg-green-50 dark:bg-green-900/20 ring-1 ring-green-500': selectedMovements.includes(movement.id),
+                                    'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800': !selectedMovements.includes(movement.id)
+                                }"
+                           >
+                                <div class="flex justify-between items-start">
+                                    <div class="flex-1 mr-2">
+                                        <div class="font-bold text-gray-800 dark:text-gray-200 text-sm break-words leading-tight">{{ movement.descripcion }}</div>
+                                        <div class="text-xs text-gray-500 mt-1">{{ formatDate(movement.fecha) }}</div>
+                                        <div class="text-[10px] text-gray-400 uppercase mt-0.5 tracking-wide bg-gray-100 dark:bg-gray-700 inline-block px-1 rounded">
                                             {{ movement.tipo }}
                                         </div>
                                     </div>
-                                    <div
-                                        class="font-mono font-bold text-green-700"
-                                    >
-                                        ${{ Number(movement.monto).toFixed(2) }}
+                                    <div class="text-right whitespace-nowrap">
+                                        <div class="font-bold text-green-600 dark:text-green-400">{{ formatCurrency(movement.monto) }}</div>
                                     </div>
                                 </div>
-                                <div
-                                    v-if="movements.length === 0"
-                                    class="text-center text-gray-500 py-8"
-                                >
-                                    No hay movimientos pendientes.
+
+                                <!-- Checkmark indicator -->
+                                <div v-if="selectedMovements.includes(movement.id)" class="absolute top-2 right-2 h-4 w-4 bg-green-600 rounded-full flex items-center justify-center">
+                                    <svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
                                 </div>
-                            </div>
+                           </div>
                         </div>
                     </div>
+
                 </div>
             </div>
         </div>

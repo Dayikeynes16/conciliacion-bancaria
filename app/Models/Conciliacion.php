@@ -15,7 +15,7 @@ class Conciliacion extends Model
         'monto_aplicado',
         'estatus',
         'tipo',
-        'fecha_conciliacion'
+        'fecha_conciliacion',
     ];
 
     protected $casts = [

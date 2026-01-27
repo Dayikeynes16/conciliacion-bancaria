@@ -8,6 +8,9 @@ import InputError from '@/Components/InputError.vue';
 import InputLabel from '@/Components/InputLabel.vue';
 import { ref } from 'vue';
 
+import ConfirmationModal from '@/Components/ConfirmationModal.vue';
+import DangerButton from '@/Components/DangerButton.vue';
+
 const props = defineProps<{
     team: {
         id: number;
@@ -58,9 +61,38 @@ const copyLink = (token: string) => {
     alert('Link copiado al portapapeles: ' + link);
 };
 
-const removeMember = (userId: number) => {
-    if (confirm('¿Estás seguro de que deseas eliminar a este usuario del equipo?')) {
-        router.delete(route('team-members.destroy', { team: props.team.id, user: userId }));
+const userBeingRemoved = ref<number | null>(null);
+const userLeavingElement = ref<boolean>(false);
+const removalForm = useForm({});
+
+const confirmUserRemoval = (userId: number) => {
+    userBeingRemoved.value = userId;
+    userLeavingElement.value = false;
+};
+
+const confirmUserLeavning = (userId: number) => {
+    userBeingRemoved.value = userId;
+    userLeavingElement.value = true;
+};
+
+const removeMember = () => {
+    if (!userBeingRemoved.value) return;
+    
+    removalForm.delete(route('team-members.destroy', { team: props.team.id, user: userBeingRemoved.value }), {
+        preserveScroll: true,
+        preserveState: true,
+        onSuccess: () => {
+            userBeingRemoved.value = null;
+            userLeavingElement.value = false;
+        },
+    });
+};
+
+const cancelInvitation = (id: number) => {
+    if (confirm('¿Estás seguro de que deseas cancelar esta invitación?')) {
+        router.delete(route('team-invitations.destroy', id), {
+            preserveScroll: true,
+        });
     }
 };
 </script>
@@ -115,7 +147,13 @@ const removeMember = (userId: number) => {
                             </p>
                         </header>
 
-                        <form @submit.prevent="inviteUser" class="mt-6 flex items-start gap-4">
+                        <div v-if="team.user_id !== $page.props.auth.user.id" class="mt-4 bg-yellow-50 dark:bg-yellow-900/20 p-4 rounded-md">
+                            <p class="text-sm text-yellow-800 dark:text-yellow-200">
+                                Solo el propietario del equipo puede invitar a nuevos miembros.
+                            </p>
+                        </div>
+
+                        <form @submit.prevent="inviteUser" class="mt-6 flex items-start gap-4" :class="{ 'opacity-50': team.user_id !== $page.props.auth.user.id }">
                             <div class="flex-1 max-w-md">
                                 <InputLabel for="email" value="Correo Electrónico" class="sr-only" />
                                 <TextInput
@@ -125,10 +163,11 @@ const removeMember = (userId: number) => {
                                     v-model="form.email"
                                     placeholder="usuario@ejemplo.com"
                                     required
+                                    :disabled="team.user_id !== $page.props.auth.user.id"
                                 />
                                 <InputError class="mt-2" :message="form.errors.email" />
                             </div>
-                            <PrimaryButton :disabled="form.processing">Invitar</PrimaryButton>
+                            <PrimaryButton :disabled="form.processing || team.user_id !== $page.props.auth.user.id">Invitar</PrimaryButton>
                         </form>
                     </section>
                 </div>
@@ -162,7 +201,8 @@ const removeMember = (userId: number) => {
                                         <td class="px-6 py-4">{{ invite.role }}</td>
                                         <td class="px-6 py-4">{{ new Date(invite.created_at).toLocaleDateString() }}</td>
                                         <td class="px-6 py-4">
-                                            <button @click="copyLink(invite.token)" class="text-blue-600 dark:text-blue-400 hover:underline">Copiar Enlace</button>
+                                            <button @click="copyLink(invite.token)" class="text-blue-600 dark:text-blue-400 hover:underline mr-4">Copiar Enlace</button>
+                                            <button @click="cancelInvitation(invite.id)" class="text-red-600 dark:text-red-400 hover:underline">Eliminar</button>
                                         </td>
                                     </tr>
                                 </tbody>
@@ -195,12 +235,18 @@ const removeMember = (userId: number) => {
                                         <td class="px-6 py-4 capitalize">{{ user.pivot.role }}</td>
                                         <td class="px-6 py-4">
                                             <button 
-                                                v-if="user.pivot.role !== 'owner'" 
-                                                @click="removeMember(user.id)" 
+                                                v-if="user.pivot.role !== 'owner' && team.user_id === $page.props.auth.user.id" 
+                                                @click="confirmUserRemoval(user.id)" 
                                                 class="text-red-600 dark:text-red-400 hover:underline">
                                                 Eliminar
                                             </button>
-                                            <span v-else class="text-gray-400 italic">Propietario</span>
+                                            <button 
+                                                v-if="user.id === $page.props.auth.user.id && user.pivot.role !== 'owner'" 
+                                                @click="confirmUserLeavning(user.id)" 
+                                                class="text-red-600 dark:text-red-400 hover:underline">
+                                                Salir
+                                            </button>
+                                            <span v-if="user.pivot.role === 'owner'" class="text-gray-400 italic">Propietario</span>
                                         </td>
                                     </tr>
                                 </tbody>
@@ -208,7 +254,56 @@ const removeMember = (userId: number) => {
                         </div>
                     </section>
                 </div>
+
+                <!-- Leave Team Section -->
+                 <div class="p-4 sm:p-8 bg-white dark:bg-gray-800 shadow sm:rounded-lg border-l-4 border-red-500" v-if="team.user_id !== $page.props.auth.user.id">
+                    <section>
+                        <header>
+                            <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100">Salir del Equipo</h2>
+                            <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
+                                Renuncia a tu acceso a este equipo.
+                            </p>
+                        </header>
+
+                        <div class="mt-6">
+                            <DangerButton @click="confirmUserLeavning($page.props.auth.user.id)">
+                                Salir del Equipo
+                            </DangerButton>
+                        </div>
+                    </section>
+                </div>
             </div>
         </div>
+
+        <!-- Confirmation Modal -->
+        <ConfirmationModal :show="userBeingRemoved !== null" @close="userBeingRemoved = null">
+            <template #title>
+                {{ userLeavingElement ? 'Salir del Equipo' : 'Eliminar Miembro del Equipo' }}
+            </template>
+
+            <template #content>
+                <span v-if="userLeavingElement">
+                    ¿Estás seguro de que deseas salir de este equipo? Perderás acceso a todos los recursos.
+                </span>
+                <span v-else>
+                    ¿Estás seguro de que deseas eliminar a este usuario del equipo? Esta acción no se puede deshacer.
+                </span>
+            </template>
+
+            <template #footer>
+                <SecondaryButton @click="userBeingRemoved = null">
+                    Cancelar
+                </SecondaryButton>
+
+                <DangerButton
+                    class="ml-2"
+                    @click="removeMember"
+                    :class="{ 'opacity-25': removalForm.processing }"
+                    :disabled="removalForm.processing"
+                >
+                    {{ userLeavingElement ? 'Salir' : 'Eliminar' }}
+                </DangerButton>
+            </template>
+        </ConfirmationModal>
     </AuthenticatedLayout>
 </template>

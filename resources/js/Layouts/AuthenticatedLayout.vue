@@ -7,6 +7,15 @@ import SidebarLink from "@/Components/SidebarLink.vue";
 import { Link, router } from "@inertiajs/vue3";
 
 const showingNavigationDropdown = ref(false);
+
+const updateDateFilter = (key: 'month' | 'year', value: string) => {
+    const currentUrl = new URL(window.location.href);
+    currentUrl.searchParams.set(key, value.toString());
+    router.visit(currentUrl.toString(), {
+        preserveScroll: true,
+        preserveState: true,
+    });
+};
 </script>
 
 <template>
@@ -245,6 +254,75 @@ const showingNavigationDropdown = ref(false);
             class="fixed inset-0 z-20 bg-black opacity-50 lg:hidden"
         ></div>
 
+        <!-- Global Toast Notifications -->
+        <div class="fixed top-4 right-4 z-50 space-y-2 pointer-events-none">
+            <Transition
+                enter-active-class="transform ease-out duration-300 transition"
+                enter-from-class="translate-y-2 opacity-0 sm:translate-y-0 sm:translate-x-2"
+                enter-to-class="translate-y-0 opacity-100 sm:translate-x-0"
+                leave-active-class="transition ease-in duration-100"
+                leave-from-class="opacity-100"
+                leave-to-class="opacity-0"
+            >
+                <div v-if="$page.props.flash.success" class="pointer-events-auto w-full max-w-md overflow-hidden rounded-lg bg-white shadow-lg ring-1 ring-black ring-opacity-5">
+                    <div class="p-4">
+                        <div class="flex items-start">
+                            <div class="flex-shrink-0">
+                                <svg class="h-6 w-6 text-green-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                            </div>
+                            <div class="ml-3 w-0 flex-1 pt-0.5">
+                                <p class="text-sm font-medium text-gray-900">Exitoso</p>
+                                <p class="mt-1 text-sm text-gray-500 leading-relaxed">{{ $page.props.flash.success }}</p>
+                            </div>
+                            <div class="ml-4 flex flex-shrink-0">
+                                <button type="button" @click="$page.props.flash.success = undefined" class="inline-flex rounded-md bg-white text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
+                                    <span class="sr-only">Close</span>
+                                    <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                        <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </Transition>
+
+            <Transition
+                enter-active-class="transform ease-out duration-300 transition"
+                enter-from-class="translate-y-2 opacity-0 sm:translate-y-0 sm:translate-x-2"
+                enter-to-class="translate-y-0 opacity-100 sm:translate-x-0"
+                leave-active-class="transition ease-in duration-100"
+                leave-from-class="opacity-100"
+                leave-to-class="opacity-0"
+            >
+                <div v-if="$page.props.flash.error" class="pointer-events-auto w-full max-w-md overflow-hidden rounded-lg bg-white shadow-lg ring-1 ring-black ring-opacity-5">
+                    <div class="p-4">
+                        <div class="flex items-start">
+                            <div class="flex-shrink-0">
+                                <svg class="h-6 w-6 text-red-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+                                </svg>
+                            </div>
+                            <div class="ml-3 w-0 flex-1 pt-0.5">
+                                <p class="text-sm font-medium text-gray-900">Error</p>
+                                <p class="mt-1 text-sm text-gray-500 leading-relaxed">{{ $page.props.flash.error }}</p>
+                            </div>
+                            <div class="ml-4 flex flex-shrink-0">
+                                <button type="button" @click="$page.props.flash.error = undefined" class="inline-flex rounded-md bg-white text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
+                                    <span class="sr-only">Close</span>
+                                    <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                        <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </Transition>
+        </div>
+
         <!-- Main Content Wrapper -->
         <div class="flex-1 flex flex-col overflow-hidden">
             <!-- Top Header -->
@@ -282,6 +360,28 @@ const showingNavigationDropdown = ref(false);
                 </div>
 
                 <div class="flex items-center space-x-4">
+                    <!-- Global Date Filter -->
+                    <div class="flex items-center space-x-2 bg-gray-50 dark:bg-gray-700 p-1.5 rounded-lg border border-gray-200 dark:border-gray-600">
+                        <select 
+                            :value="$page.props.filters.month"
+                            @change="updateDateFilter('month', ($event.target as HTMLSelectElement).value)"
+                            class="text-sm border-none bg-transparent focus:ring-0 text-gray-700 dark:text-gray-300 font-medium py-1 pr-8 pl-2 cursor-pointer"
+                        >
+                            <option v-for="m in 12" :key="m" :value="m">
+                                {{ new Date(0, m - 1).toLocaleString('es-MX', { month: 'long' }).charAt(0).toUpperCase() + new Date(0, m - 1).toLocaleString('es-MX', { month: 'long' }).slice(1) }}
+                            </option>
+                        </select>
+                        <select 
+                            :value="$page.props.filters.year"
+                            @change="updateDateFilter('year', ($event.target as HTMLSelectElement).value)"
+                            class="text-sm border-none bg-transparent focus:ring-0 text-gray-700 dark:text-gray-300 font-bold py-1 pr-8 pl-2 cursor-pointer"
+                        >
+                            <option v-for="y in $page.props.available_years" :key="y" :value="y">
+                                {{ y }}
+                            </option>
+                        </select>
+                    </div>
+
                     <!-- Team Switcher -->
                     <Dropdown
                         align="right"
@@ -343,7 +443,7 @@ const showingNavigationDropdown = ref(false);
                                 </div>
 
                                 <div
-                                    v-for="team in $page.props.auth.user.teams"
+                                    v-for="team in $page.props.auth.user.all_teams"
                                     :key="team.id"
                                 >
                                     <form

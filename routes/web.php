@@ -25,18 +25,21 @@ Route::middleware('auth')->group(function () {
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
     Route::post('/upload/files', [App\Http\Controllers\FileUploadController::class, 'store'])->name('upload.store');
-    
+
     // Team Management
     Route::resource('teams', App\Http\Controllers\TeamController::class)->only(['create', 'store', 'update']);
     Route::put('/current-team', [App\Http\Controllers\CurrentTeamController::class, 'update'])->name('current-team.update');
     Route::get('/teams/members', [App\Http\Controllers\TeamMemberController::class, 'index'])->name('teams.show');
     Route::post('/teams/members', [App\Http\Controllers\TeamMemberController::class, 'store'])->name('team-members.store');
     Route::delete('/teams/{team}/members/{user}', [App\Http\Controllers\TeamMemberController::class, 'destroy'])->name('team-members.destroy');
-    
+    Route::delete('/team-invitations/{invitation}', [App\Http\Controllers\TeamInvitationController::class, 'destroy'])->name('team-invitations.destroy');
+
     // Reconciliation Routes
     Route::get('/reconciliation', [App\Http\Controllers\ReconciliationController::class, 'index'])->name('reconciliation.index');
     Route::post('/reconciliation', [App\Http\Controllers\ReconciliationController::class, 'store'])->name('reconciliation.store');
     Route::post('/reconciliation/auto', [App\Http\Controllers\ReconciliationController::class, 'auto'])->name('reconciliation.auto');
+    Route::post('/reconciliation/batch', [App\Http\Controllers\ReconciliationController::class, 'batch'])->name('reconciliation.batch');
+    Route::delete('/reconciliation/{id}', [App\Http\Controllers\ReconciliationController::class, 'destroy'])->name('reconciliation.destroy');
     Route::get('/reconciliation/history', [App\Http\Controllers\ReconciliationController::class, 'history'])->name('reconciliation.history');
     Route::get('/reconciliation/status', [App\Http\Controllers\ReconciliationController::class, 'status'])->name('reconciliation.status');
 

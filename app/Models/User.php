@@ -64,6 +64,7 @@ class User extends Authenticatable
             'password' => 'hashed',
         ];
     }
+
     /**
      * Get the current team of the user.
      */
@@ -123,7 +124,7 @@ class User extends Authenticatable
      */
     public function switchTeam($team)
     {
-        if (!$this->belongsToTeam($team)) {
+        if (! $this->belongsToTeam($team)) {
             return false;
         }
 
@@ -132,5 +133,15 @@ class User extends Authenticatable
         ])->save();
 
         return true;
+    }
+
+    /**
+     * Get all of the teams the user belongs to or owns.
+     *
+     * @return \Illuminate\Support\Collection
+     */
+    public function allTeams()
+    {
+        return $this->ownedTeams->merge($this->teams)->sortBy('name');
     }
 }

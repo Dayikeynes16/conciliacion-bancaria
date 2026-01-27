@@ -2,9 +2,8 @@
 
 namespace App\Services\Xml;
 
-use SimpleXMLElement;
 use Carbon\Carbon;
-use Illuminate\Support\Facades\Log;
+use SimpleXMLElement;
 
 class CfdiParserService
 {
@@ -12,15 +11,15 @@ class CfdiParserService
     {
         $xml = new SimpleXMLElement($content);
         $ns = $xml->getNamespaces(true);
-        
+
         // Ensure namespaces are registered
-        if (!isset($ns['cfdi'])) {
+        if (! isset($ns['cfdi'])) {
             $xml->registerXPathNamespace('cfdi', 'http://www.sat.gob.mx/cfd/4');
         } else {
-             $xml->registerXPathNamespace('cfdi', $ns['cfdi']);
+            $xml->registerXPathNamespace('cfdi', $ns['cfdi']);
         }
-        
-        if (!isset($ns['tfd'])) {
+
+        if (! isset($ns['tfd'])) {
             $xml->registerXPathNamespace('tfd', 'http://www.sat.gob.mx/TimbreFiscalDigital');
         } else {
             $xml->registerXPathNamespace('tfd', $ns['tfd']);
@@ -28,7 +27,7 @@ class CfdiParserService
 
         // Use XPath for safer extraction of attributes in namespaces
         $timbre = $xml->xpath('//tfd:TimbreFiscalDigital');
-        $uuid = isset($timbre[0]) ? (string)$timbre[0]['UUID'] : '';
+        $uuid = isset($timbre[0]) ? (string) $timbre[0]['UUID'] : '';
 
         // Extract Root attributes
         $total = (float) $xml['Total'];
@@ -38,13 +37,13 @@ class CfdiParserService
 
         // Extract Emisor
         $emisor = $xml->xpath('//cfdi:Emisor');
-        $rfcEmisor = isset($emisor[0]) ? (string)$emisor[0]['Rfc'] : '';
-        $nombreEmisor = isset($emisor[0]) ? (string)$emisor[0]['Nombre'] : '';
+        $rfcEmisor = isset($emisor[0]) ? (string) $emisor[0]['Rfc'] : '';
+        $nombreEmisor = isset($emisor[0]) ? (string) $emisor[0]['Nombre'] : '';
 
         // Extract Receptor
         $receptor = $xml->xpath('//cfdi:Receptor');
-        $rfcReceptor = isset($receptor[0]) ? (string)$receptor[0]['Rfc'] : '';
-        $nombreReceptor = isset($receptor[0]) ? (string)$receptor[0]['Nombre'] : '';
+        $rfcReceptor = isset($receptor[0]) ? (string) $receptor[0]['Rfc'] : '';
+        $nombreReceptor = isset($receptor[0]) ? (string) $receptor[0]['Nombre'] : '';
 
         return [
             'uuid' => $uuid,

@@ -3,9 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\Archivo;
+use App\Models\Banco;
 use App\Models\Factura;
 use App\Models\Movimiento;
-use App\Models\Banco;
 use App\Services\Parsers\StatementParserFactory;
 use App\Services\Xml\CfdiParserService;
 use Illuminate\Http\Request;
@@ -41,8 +41,8 @@ class FileUploadController extends Controller
                     // Store File
                     $teamId = auth()->user()->current_team_id;
                     $path = $file->storeAs(
-                        'uploads/teams/' . $teamId . '/xml',
-                        Str::uuid() . '_' . $file->getClientOriginalName()
+                        'uploads/teams/'.$teamId.'/xml',
+                        Str::uuid().'_'.$file->getClientOriginalName()
                     );
 
                     // Parse Content
@@ -59,24 +59,24 @@ class FileUploadController extends Controller
                     ]);
 
                     // Check duplicate UUID
-                    $exists = Factura::where('uuid', $data['uuid'])->exists(); 
-                    
+                    $exists = Factura::where('uuid', $data['uuid'])->exists();
+
                     if ($exists) {
-                         // Decide if we throw or just skip. User usually wants to know.
-                         // For now, let's skip/throw as before but maybe safer to skip?
-                         // Existing logic threw exception. Let's keep strict for invoices for now or just skip to avoid breaking batch?
-                         // User said "preventing duplicated movements", didn't specify invoices, but safer to skip and count error.
-                         // But current code throws. Let's keep it consistent or improve.
-                         // Actually, sticking to original logic for invoices for now to minimize scope creep unless needed.
-                         throw new \Exception("La factura con UUID {$data['uuid']} ya fue registrada previamente.");
+                        // Decide if we throw or just skip. User usually wants to know.
+                        // For now, let's skip/throw as before but maybe safer to skip?
+                        // Existing logic threw exception. Let's keep strict for invoices for now or just skip to avoid breaking batch?
+                        // User said "preventing duplicated movements", didn't specify invoices, but safer to skip and count error.
+                        // But current code throws. Let's keep it consistent or improve.
+                        // Actually, sticking to original logic for invoices for now to minimize scope creep unless needed.
+                        throw new \Exception("La factura con UUID {$data['uuid']} ya fue registrada previamente.");
                     }
-                    
+
                     Factura::create([
                         'file_id_xml' => $archivo->id,
                         'uuid' => $data['uuid'],
                         'monto' => $data['total'],
                         'fecha_emision' => $data['fecha_emision'],
-                        'rfc' => $data['rfc_emisor'], 
+                        'rfc' => $data['rfc_emisor'],
                         'nombre' => $data['nombre_emisor'],
                         'verificado' => true,
                     ]);
@@ -88,14 +88,14 @@ class FileUploadController extends Controller
             // Process Bank Statement (Movimientos)
             if ($request->hasFile('statement')) {
                 $file = $request->file('statement');
-                
+
                 // Store File
                 $teamId = auth()->user()->current_team_id;
                 $path = $file->storeAs(
-                    'uploads/teams/' . $teamId . '/banco',
-                    Str::uuid() . '_' . $file->getClientOriginalName()
+                    'uploads/teams/'.$teamId.'/banco',
+                    Str::uuid().'_'.$file->getClientOriginalName()
                 );
-                
+
                 // Calculate checksum/hash of the file content
                 $checksum = md5_file($file->getRealPath());
 
@@ -111,13 +111,13 @@ class FileUploadController extends Controller
                     // User requested generic notification. We can return error or just skip?
                     // "saying you cant upload this file because it was uploaded in the past"
                     throw \Illuminate\Validation\ValidationException::withMessages([
-                        'statement' => "No se puede subir este archivo porque ya fue cargado anteriormente en este equipo.",
+                        'statement' => 'No se puede subir este archivo porque ya fue cargado anteriormente en este equipo.',
                     ]);
                 }
-                
+
                 $bankCode = $request->input('bank_code', 'BBVA');
                 // Identify Bank (Find by code or name)
-                $banco = Banco::firstOrCreate(['codigo' => $bankCode], ['nombre' => $bankCode . ' Bank']); 
+                $banco = Banco::firstOrCreate(['codigo' => $bankCode], ['nombre' => $bankCode.' Bank']);
 
                 // Create Archivo Record
                 $archivo = Archivo::create([
@@ -138,8 +138,8 @@ class FileUploadController extends Controller
                 foreach ($movements as $mov) {
                     // Generate Hash: md5(fecha + monto + tipo + referencia + descripcion)
                     // Normalize float to 2 decimals to avoid precision issues in string
-                    $normalizedMonto = number_format((float)$mov['monto'], 2, '.', '');
-                    $hashString = $mov['fecha'] . $normalizedMonto . $mov['tipo'] . ($mov['referencia'] ?? '') . ($mov['descripcion'] ?? '');
+                    $normalizedMonto = number_format((float) $mov['monto'], 2, '.', '');
+                    $hashString = $mov['fecha'].$normalizedMonto.$mov['tipo'].($mov['referencia'] ?? '').($mov['descripcion'] ?? '');
                     $hash = md5($hashString);
 
                     // Check for duplicate in the CURRENT TEAM (scope applies to Movimiento)
@@ -147,6 +147,7 @@ class FileUploadController extends Controller
 
                     if ($exists) {
                         $results['statement_skipped']++;
+
                         continue;
                     }
 
@@ -168,23 +169,23 @@ class FileUploadController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error("Upload transaction failed: " . $e->getMessage());
+            Log::error('Upload transaction failed: '.$e->getMessage());
             throw \Illuminate\Validation\ValidationException::withMessages([
-                'message' => 'Error al procesar archivos: ' . $e->getMessage()
+                'message' => 'Error al procesar archivos: '.$e->getMessage(),
             ]);
         }
 
         $message = "Proceso completado. XMLs: {$results['xml_processed']} (Fallidos: {$results['xml_errors']}). ";
         $message .= "Movimientos: {$results['statement_processed']} (Duplicados omitidos: {$results['statement_skipped']})";
-        
+
         $type = 'success';
 
         if ($results['xml_processed'] == 0 && $results['statement_processed'] == 0) {
             if ($results['statement_skipped'] > 0) {
-                 $message = "Todos los movimientos en el archivo ya existían y fueron omitidos.";
+                $message = 'Todos los movimientos en el archivo ya existían y fueron omitidos.';
             } else {
-                 $type = 'warning';
-                 $message = "Se subieron los archivos pero no se detectaron registros válidos. Verifique el contenido o formato.";
+                $type = 'warning';
+                $message = 'Se subieron los archivos pero no se detectaron registros válidos. Verifique el contenido o formato.';
             }
         }
 

@@ -21,7 +21,7 @@ trait UserOwned
 
         // Automatically set user_id when creating models
         static::creating(function ($model) {
-            if (Auth::check() && !isset($model->user_id)) {
+            if (Auth::check() && ! isset($model->user_id)) {
                 $model->user_id = Auth::id();
             }
         });

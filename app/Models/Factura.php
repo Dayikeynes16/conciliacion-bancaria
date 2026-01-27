@@ -18,7 +18,7 @@ class Factura extends Model
         'fecha_emision',
         'rfc',
         'nombre',
-        'verificado'
+        'verificado',
     ];
 
     protected $casts = [

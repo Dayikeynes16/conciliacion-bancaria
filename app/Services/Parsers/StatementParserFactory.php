@@ -3,7 +3,6 @@
 namespace App\Services\Parsers;
 
 use App\Services\Parsers\Contracts\StatementParser;
-use App\Models\Banco;
 use Exception;
 
 class StatementParserFactory
@@ -11,8 +10,6 @@ class StatementParserFactory
     /**
      * Get the appropriate parser for the given bank code.
      *
-     * @param string $bankCode
-     * @return StatementParser
      * @throws Exception
      */
     public static function make(string $bankCode): StatementParser

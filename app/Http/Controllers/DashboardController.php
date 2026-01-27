@@ -2,40 +2,49 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Conciliacion;
 use App\Models\Factura;
 use App\Models\Movimiento;
-use App\Models\Conciliacion;
-use Illuminate\Http\Request;
-use Inertia\Inertia;
 use Illuminate\Support\Carbon;
+use Inertia\Inertia;
 
 class DashboardController extends Controller
 {
-    public function index()
+    public function index(\Illuminate\Http\Request $request)
     {
         $teamId = auth()->user()->current_team_id;
+        $month = $request->input('month');
+        $year = $request->input('year');
 
         // Statistics
         $pendingInvoicesCount = Factura::where('team_id', $teamId)
+            ->whereMonth('fecha_emision', $month)
+            ->whereYear('fecha_emision', $year)
             ->doesntHave('conciliaciones')
             ->count();
 
         $totalPendingInvoicesAmount = Factura::where('team_id', $teamId)
+            ->whereMonth('fecha_emision', $month)
+            ->whereYear('fecha_emision', $year)
             ->doesntHave('conciliaciones')
             ->sum('monto');
 
         $pendingMovementsCount = Movimiento::where('team_id', $teamId)
+            ->whereMonth('fecha', $month)
+            ->whereYear('fecha', $year)
             ->where(function ($query) {
                 $query->where('tipo', 'abono')
-                      ->orWhere('tipo', 'Abono');
+                    ->orWhere('tipo', 'Abono');
             })
             ->doesntHave('conciliaciones')
             ->count();
 
         $totalPendingMovementsAmount = Movimiento::where('team_id', $teamId)
+            ->whereMonth('fecha', $month)
+            ->whereYear('fecha', $year)
             ->where(function ($query) {
                 $query->where('tipo', 'abono')
-                      ->orWhere('tipo', 'Abono');
+                    ->orWhere('tipo', 'Abono');
             })
             ->doesntHave('conciliaciones')
             ->sum('monto');
@@ -43,9 +52,10 @@ class DashboardController extends Controller
         $conciliatedThisMonth = Conciliacion::whereHas('factura', function ($q) use ($teamId) {
             $q->where('team_id', $teamId);
         })
-        ->whereMonth('created_at', Carbon::now()->month)
-        ->count();
-        
+            ->whereMonth('created_at', $month)
+            ->whereYear('created_at', $year)
+            ->count();
+
         // Recent Activity
         $recentConciliations = Conciliacion::with(['factura', 'movimiento', 'user'])
             ->whereHas('factura', function ($q) use ($teamId) {

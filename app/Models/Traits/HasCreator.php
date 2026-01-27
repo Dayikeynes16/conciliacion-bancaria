@@ -2,8 +2,8 @@
 
 namespace App\Models\Traits;
 
-use Illuminate\Support\Facades\Auth;
 use App\Models\User;
+use Illuminate\Support\Facades\Auth;
 
 trait HasCreator
 {
@@ -14,7 +14,7 @@ trait HasCreator
     {
         // Automatically set user_id when creating models
         static::creating(function ($model) {
-            if (Auth::check() && !isset($model->user_id)) {
+            if (Auth::check() && ! isset($model->user_id)) {
                 $model->user_id = Auth::id();
             }
         });

@@ -3,23 +3,36 @@
 namespace App\Http\Controllers;
 
 use App\Models\Archivo;
-use Illuminate\Http\Request;
 use Inertia\Inertia;
 
 class MovimientoController extends Controller
 {
-    public function index()
+    public function index(\Illuminate\Http\Request $request)
     {
-        $files = Archivo::whereHas('movimientos')
+        $month = $request->input('month');
+        $year = $request->input('year');
+
+        $files = Archivo::where('team_id', auth()->user()->current_team_id)
+            ->whereHas('movimientos', function ($query) use ($month, $year) {
+                 if ($month && $year) {
+                     $query->whereMonth('fecha', $month)
+                           ->whereYear('fecha', $year);
+                 }
+            })
             ->with(['banco'])
             ->withCount('movimientos')
             ->latest()
             ->get();
 
         return Inertia::render('Movements/Index', [
-            'files' => $files
+            'files' => $files,
+            'filters' => [
+                'month' => $month,
+                'year' => $year,
+            ],
         ]);
     }
+
     public function show($fileId)
     {
         $movements = \App\Models\Movimiento::where('file_id', $fileId)

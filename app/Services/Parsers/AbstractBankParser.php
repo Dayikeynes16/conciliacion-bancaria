@@ -3,16 +3,13 @@
 namespace App\Services\Parsers;
 
 use App\Services\Parsers\Contracts\StatementParser;
-use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Support\Collection;
+use Maatwebsite\Excel\Facades\Excel;
 
 abstract class AbstractBankParser implements StatementParser
 {
     /**
      * Normalize the data from the bank file.
-     *
-     * @param Collection $rows
-     * @return Collection
      */
     abstract protected function normalize(Collection $rows): Collection;
 
@@ -20,8 +17,10 @@ abstract class AbstractBankParser implements StatementParser
     {
         // Load the file using Maatwebsite Excel
         // We assume the first sheet contains the data
-        $rows = Excel::toCollection(new class implements \Maatwebsite\Excel\Concerns\ToCollection {
-            public function collection(Collection $rows) {
+        $rows = Excel::toCollection(new class implements \Maatwebsite\Excel\Concerns\ToCollection
+        {
+            public function collection(Collection $rows)
+            {
                 return $rows;
             }
         }, $filePath)->first();

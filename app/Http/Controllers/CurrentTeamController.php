@@ -15,7 +15,7 @@ class CurrentTeamController extends Controller
 
         $team = Team::findOrFail($request->team_id);
 
-        if (!$request->user()->switchTeam($team)) {
+        if (! $request->user()->switchTeam($team)) {
             abort(403);
         }
 

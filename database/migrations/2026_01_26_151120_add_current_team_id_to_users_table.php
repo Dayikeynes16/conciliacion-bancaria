@@ -29,8 +29,8 @@ return new class extends Migration
                     ->where('team_id', $user->team_id)
                     ->where('user_id', $user->id)
                     ->exists();
-                
-                if (!$exists) {
+
+                if (! $exists) {
                     \Illuminate\Support\Facades\DB::table('team_user')->insert([
                         'team_id' => $user->team_id,
                         'user_id' => $user->id,

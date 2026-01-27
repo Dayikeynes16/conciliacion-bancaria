@@ -25,15 +25,15 @@ return new class extends Migration
         Schema::table('movimientos', function (Blueprint $table) {
             $table->foreignId('team_id')->after('id')->nullable()->constrained()->onDelete('cascade');
         });
-        
-         // Add team_id to bancos
+
+        // Add team_id to bancos
         Schema::table('bancos', function (Blueprint $table) {
             $table->foreignId('team_id')->after('id')->nullable()->constrained()->onDelete('cascade');
         });
 
         // Add team_id to archivos (optional, but good for filtering)
         Schema::table('archivos', function (Blueprint $table) {
-             $table->foreignId('team_id')->after('id')->nullable()->constrained()->onDelete('cascade');
+            $table->foreignId('team_id')->after('id')->nullable()->constrained()->onDelete('cascade');
         });
     }
 
@@ -46,25 +46,25 @@ return new class extends Migration
             $table->dropForeign(['team_id']);
             $table->dropColumn('team_id');
         });
-        
+
         Schema::table('facturas', function (Blueprint $table) {
             $table->dropForeign(['team_id']);
-             $table->dropColumn('team_id');
+            $table->dropColumn('team_id');
         });
 
         Schema::table('movimientos', function (Blueprint $table) {
             $table->dropForeign(['team_id']);
-             $table->dropColumn('team_id');
+            $table->dropColumn('team_id');
         });
-        
+
         Schema::table('bancos', function (Blueprint $table) {
             $table->dropForeign(['team_id']);
-             $table->dropColumn('team_id');
+            $table->dropColumn('team_id');
         });
-        
+
         Schema::table('archivos', function (Blueprint $table) {
             $table->dropForeign(['team_id']);
-             $table->dropColumn('team_id');
+            $table->dropColumn('team_id');
         });
     }
 };

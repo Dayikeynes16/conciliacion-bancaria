@@ -29,18 +29,56 @@ class HandleInertiaRequests extends Middleware
      */
     public function share(Request $request): array
     {
+        // Calculate available years dynamically
+        $teamId = $request->user()?->current_team_id;
+        $years = [];
+
+        if ($teamId) {
+            $invoiceYears = \App\Models\Factura::where('team_id', $teamId)
+                ->selectRaw('YEAR(fecha_emision) as year')
+                ->distinct()
+                ->pluck('year')
+                ->toArray();
+
+            $movementYears = \App\Models\Movimiento::where('team_id', $teamId)
+                ->selectRaw('YEAR(fecha) as year')
+                ->distinct()
+                ->pluck('year')
+                ->toArray();
+            
+            $allYears = array_unique(array_merge($invoiceYears, $movementYears));
+            sort($allYears);
+            
+            // Ensure current year is always included
+            if (!in_array(now()->year, $allYears)) {
+                $allYears[] = now()->year;
+                sort($allYears);
+            }
+            
+            $years = array_values($allYears);
+        } else {
+             $years = [now()->year];
+        }
+
         return [
             ...parent::share($request),
             'auth' => [
-                'user' => $request->user() ? $request->user()->load(['currentTeam' => function ($query) {
-                    $query->select('id', 'name', 'user_id', 'personal_team'); 
-                }, 'teams']) : null,
+                'user' => $request->user() ? array_merge($request->user()->load(['currentTeam' => function ($query) {
+                    $query->select('id', 'name', 'user_id', 'personal_team');
+                }])->toArray(), [
+                    'all_teams' => $request->user()->allTeams()->values()->all(),
+                ]) : null,
             ],
             'flash' => [
                 'success' => fn () => $request->session()->get('success'),
                 'error' => fn () => $request->session()->get('error'),
                 'warning' => fn () => $request->session()->get('warning'),
             ],
+            'filters' => [
+                'month' => $request->input('month', now()->month),
+                'year' => $request->input('year', now()->year),
+            ],
+            'available_years' => $years,
         ];
     }
 }

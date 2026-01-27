@@ -14,6 +14,12 @@ export interface User {
         user_id: number;
         name: string;
     }>;
+    all_teams?: Array<{
+        id: number;
+        user_id: number;
+        name: string;
+        personal_team?: boolean;
+    }>;
 }
 
 export type PageProps<
@@ -22,6 +28,11 @@ export type PageProps<
     auth: {
         user: User;
     };
+    filters: {
+        month: number;
+        year: number;
+    };
+    available_years: number[];
     flash: {
         success?: string;
         error?: string;

@@ -4,8 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\Tolerancia;
 use Illuminate\Http\Request;
-use Inertia\Inertia;
 use Illuminate\Support\Facades\Redirect;
+use Inertia\Inertia;
 
 class ToleranciaController extends Controller
 {
@@ -30,12 +30,12 @@ class ToleranciaController extends Controller
             [
                 'monto' => 0.00,
                 'user_id' => $user->id, // Assign current owner as creator
-                'dias' => 0
+                'dias' => 0,
             ]
         );
 
         return Inertia::render('Settings/Tolerance', [
-            'tolerancia' => $tolerancia
+            'tolerancia' => $tolerancia,
         ]);
     }
 
@@ -57,7 +57,7 @@ class ToleranciaController extends Controller
         ]);
 
         $tolerancia = Tolerancia::firstOrCreate(['team_id' => $team->id]);
-        
+
         $tolerancia->update([
             'monto' => $request->monto,
             'dias' => $request->dias,

@@ -1,9 +1,6 @@
 <?php
 
 use App\Models\User;
-use App\Models\Factura;
-use App\Models\Movimiento;
-use App\Models\Archivo;
 use App\Services\Parsers\BbvaParser;
 use App\Services\Xml\CfdiParserService;
 use Illuminate\Http\UploadedFile;
@@ -24,7 +21,7 @@ test('upload validation fails with invalid files', function () {
 test('upload processes xml files correctly', function () {
     Storage::fake('local');
     $user = User::factory()->create();
-    
+
     // Mock Parser
     $this->mock(CfdiParserService::class, function ($mock) {
         $mock->shouldReceive('parse')
@@ -76,7 +73,7 @@ test('upload processes statement file correctly', function () {
                     'monto' => 500.00,
                     'tipo' => 'abono',
                     'referencia' => 'REF123',
-                ]
+                ],
             ]));
     });
 
@@ -88,7 +85,7 @@ test('upload processes statement file correctly', function () {
         ]);
 
     $response->assertSessionHasNoErrors();
-    
+
     $this->assertDatabaseHas('movimientos', [
         'user_id' => $user->id,
         'monto' => 500.00,

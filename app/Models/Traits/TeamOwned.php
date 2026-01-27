@@ -4,7 +4,6 @@ namespace App\Models\Traits;
 
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
-use App\Models\User;
 
 trait TeamOwned
 {
@@ -15,14 +14,14 @@ trait TeamOwned
     {
         // Automatically scope queries to the current team
         static::addGlobalScope('team', function (Builder $builder) {
-             if (Auth::check() && Auth::user()->current_team_id) {
-                 $builder->where('team_id', Auth::user()->current_team_id);
-             }
+            if (Auth::check() && Auth::user()->current_team_id) {
+                $builder->where('team_id', Auth::user()->current_team_id);
+            }
         });
 
         // Automatically set team_id when creating models
         static::creating(function ($model) {
-            if (Auth::check() && !isset($model->team_id) && Auth::user()->current_team_id) {
+            if (Auth::check() && ! isset($model->team_id) && Auth::user()->current_team_id) {
                 $model->team_id = Auth::user()->current_team_id;
             }
         });

@@ -68,6 +68,25 @@ const formatCurrency = (amount: number) => {
         currency: "MXN",
     }).format(amount);
 };
+const getReconciledTotal = (invoice: any) => {
+    return invoice.conciliaciones.reduce((sum: number, c: any) => sum + Number(c.monto_aplicado), 0);
+};
+
+const getDifference = (invoice: any) => {
+    const total = getReconciledTotal(invoice);
+    return total - Number(invoice.monto);
+};
+
+const confirmUnreconcile = (conciliacion: any) => {
+    if (confirm("¿Estás seguro de que deseas desvincular este pago? Esta acción revertirá la conciliación.")) {
+        router.delete(route("reconciliation.destroy", conciliacion.id), {
+            preserveScroll: true,
+            onSuccess: () => {
+                // Optional: Show toast or just rely on backend flash message
+            },
+        });
+    }
+};
 </script>
 
 <template>
@@ -148,15 +167,58 @@ const formatCurrency = (amount: number) => {
                                     {{ invoice.uuid }}
                                 </div>
                             </div>
-                            <div class="text-right">
-                                <div class="text-xs text-gray-500">
-                                    Monto Factura
+                            <div class="flex gap-8 text-right">
+                                <div>
+                                    <div class="text-xs text-gray-500">
+                                        Monto Factura
+                                    </div>
+                                    <div
+                                        class="text-xl font-bold text-indigo-700"
+                                    >
+                                        {{
+                                            formatCurrency(
+                                                Number(invoice.monto),
+                                            )
+                                        }}
+                                    </div>
+                                    <div class="text-xs text-gray-400">
+                                        {{
+                                            formatDate(invoice.fecha_emision)
+                                        }}
+                                    </div>
                                 </div>
-                                <div class="text-xl font-bold text-indigo-700">
-                                    {{ formatCurrency(Number(invoice.monto)) }}
+                                <div>
+                                    <div class="text-xs text-gray-500">
+                                        Total Conciliado
+                                    </div>
+                                    <div
+                                        class="text-xl font-bold text-green-600"
+                                    >
+                                        {{
+                                            formatCurrency(
+                                                getReconciledTotal(invoice),
+                                            )
+                                        }}
+                                    </div>
                                 </div>
-                                <div class="text-xs text-gray-400">
-                                    {{ formatDate(invoice.fecha_emision) }}
+                                <div>
+                                    <div class="text-xs text-gray-500">
+                                        Diferencia
+                                    </div>
+                                    <div
+                                        class="text-xl font-bold"
+                                        :class="{
+                                            'text-green-600': getDifference(invoice) > 0.01,
+                                            'text-red-500': getDifference(invoice) < -0.01,
+                                            'text-gray-400': getDifference(invoice) >= -0.01 && getDifference(invoice) <= 0.01,
+                                        }"
+                                    >
+                                        {{
+                                            formatCurrency(
+                                                getDifference(invoice),
+                                            )
+                                        }}
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -207,6 +269,21 @@ const formatCurrency = (amount: number) => {
                                                 }}
                                             </div>
                                             <div
+                                                class="text-xs text-gray-400 mt-1"
+                                                v-if="
+                                                    conciliacion.movimiento
+                                                        ?.fecha
+                                                "
+                                            >
+                                                Fecha Movimiento:
+                                                {{
+                                                    formatDate(
+                                                        conciliacion.movimiento
+                                                            .fecha,
+                                                    )
+                                                }}
+                                            </div>
+                                            <div
                                                 class="text-xs text-gray-500 mt-0.5"
                                             >
                                                 Conciliado por:
@@ -234,10 +311,10 @@ const formatCurrency = (amount: number) => {
                                         <div
                                             class="text-xs text-gray-500 mb-0.5"
                                         >
-                                            Monto Conciliado
+                                            Monto Aplicado
                                         </div>
                                         <div
-                                            class="font-bold text-green-600 text-lg"
+                                            class="font-bold text-green-600 text-lg mb-2"
                                         >
                                             {{
                                                 formatCurrency(
@@ -247,6 +324,13 @@ const formatCurrency = (amount: number) => {
                                                 )
                                             }}
                                         </div>
+                                        
+                                        <button
+                                            @click="confirmUnreconcile(conciliacion)"
+                                            class="text-xs text-red-500 hover:text-red-700 font-medium underline"
+                                        >
+                                            Desvincular
+                                        </button>
                                     </div>
                                 </div>
                             </div>

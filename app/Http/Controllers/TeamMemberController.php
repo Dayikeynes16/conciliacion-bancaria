@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\TeamInvitation;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
@@ -15,7 +14,7 @@ class TeamMemberController extends Controller
     {
         $team = $request->user()->currentTeam;
 
-        if (!$team) {
+        if (! $team) {
             abort(404, 'No team context found.');
         }
 
@@ -37,7 +36,7 @@ class TeamMemberController extends Controller
 
         // Enforce Owner Permission
         if ($team->user_id !== $request->user()->id) {
-            abort(403, 'Solo el propietario del equipo puede agregar miembros.');
+            return back()->with('error', 'Solo el propietario del equipo puede agregar miembros.');
         }
 
         // Check if user is already in team
@@ -47,7 +46,7 @@ class TeamMemberController extends Controller
 
         // Check if pending invitation exists
         if ($team->invitations()->where('email', $email)->exists()) {
-             return back()->withErrors(['email' => 'Ya existe una invitación pendiente para este correo.']);
+            return back()->withErrors(['email' => 'Ya existe una invitación pendiente para este correo.']);
         }
 
         // Create Invitation
@@ -57,37 +56,48 @@ class TeamMemberController extends Controller
             'token' => Str::random(32),
         ]);
 
-        // Send Email (Mocking for now or using a generic notification if Mail is not setup)
-        // Ideally: Mail::to($email)->send(new TeamInvitationMail($invitation));
-        // For MVP, we'll display the link in the UI or rely on user copying it? 
-        // Best to try to "send" it. But given time constraints, maybe just show it in the UI table for the admin to copy?
-        // Let's assume we can generate a route for it.
-        
-        return back()->with('success', 'Invitación creada.');
+        // Send Email
+        Mail::to($email)->send(new \App\Mail\TeamInvitationMail($invitation));
+
+        return back()->with('success', 'Invitación enviada por correo.');
     }
 
     public function destroy(Request $request, $teamId, $userId)
     {
         $team = $request->user()->currentTeam;
-        
+
         if ($team->id != $teamId) {
             abort(403);
         }
 
-        // Enforce Owner Permission
-        if ($team->user_id !== $request->user()->id) {
-            abort(403, 'Solo el propietario del equipo puede eliminar miembros.');
+        // Enforce Owner Permission, UNLESS removing self (leaving team)
+        if ($team->user_id !== $request->user()->id && $userId != $request->user()->id) {
+            return back()->with('error', 'Solo el propietario del equipo puede eliminar miembros.');
+        }
+
+        // Prevent Owner from leaving their own team
+        if ($team->user_id == $userId) {
+            return back()->with('error', 'El propietario no puede salir del equipo. Debe eliminar el equipo o transferir la propiedad.');
         }
 
         $userToRemove = User::find($userId);
 
-        if (!$userToRemove) {
+        if (! $userToRemove) {
             abort(404);
         }
 
         // Prevent removing self if owner, or ensure at least one owner remains?
         // For now, simpler logic:
         $team->users()->detach($userId);
+
+        // If the user's current team is the one they were removed from, switch them to another team.
+        if ($userToRemove->fresh()->current_team_id == $team->id) {
+            $newTeam = $userToRemove->ownedTeams()->first() ?? $userToRemove->teams()->first();
+
+            if ($newTeam) {
+                $userToRemove->switchTeam($newTeam);
+            }
+        }
 
         return back()->with('success', 'Miembro eliminado del equipo.');
     }
