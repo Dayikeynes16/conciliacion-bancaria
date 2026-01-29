@@ -39,7 +39,7 @@ const formatCurrency = (amount: number) => {
             <h2
                 class="text-xl font-semibold leading-tight text-gray-800 dark:text-gray-200"
             >
-                Dashboard
+                Inicio
             </h2>
         </template>
 
@@ -59,18 +59,18 @@ const formatCurrency = (amount: number) => {
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                     <!-- Pending Invoices -->
                     <div
-                        class="bg-white overflow-hidden shadow-sm sm:rounded-lg p-6 border-l-4 border-indigo-500"
+                        class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg p-6 border-l-4 border-indigo-500"
                     >
                         <div
-                            class="text-gray-500 text-sm font-medium uppercase"
+                            class="text-gray-500 dark:text-gray-400 text-sm font-medium uppercase"
                         >
                             Facturas Pendientes
                         </div>
                         <div class="mt-2 flex items-baseline">
-                            <span class="text-3xl font-bold text-gray-900">{{
+                            <span class="text-3xl font-bold text-gray-900 dark:text-white">{{
                                 stats.pendingInvoices
                             }}</span>
-                            <span class="ml-2 text-sm text-gray-600"
+                            <span class="ml-2 text-sm text-gray-600 dark:text-gray-400"
                                 >({{
                                     formatCurrency(stats.pendingInvoicesAmount)
                                 }})</span
@@ -80,18 +80,18 @@ const formatCurrency = (amount: number) => {
 
                     <!-- Pending Movements -->
                     <div
-                        class="bg-white overflow-hidden shadow-sm sm:rounded-lg p-6 border-l-4 border-green-500"
+                        class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg p-6 border-l-4 border-green-500"
                     >
                         <div
-                            class="text-gray-500 text-sm font-medium uppercase"
+                            class="text-gray-500 dark:text-gray-400 text-sm font-medium uppercase"
                         >
                             Pagos por Conciliar
                         </div>
                         <div class="mt-2 flex items-baseline">
-                            <span class="text-3xl font-bold text-gray-900">{{
+                            <span class="text-3xl font-bold text-gray-900 dark:text-white">{{
                                 stats.pendingMovements
                             }}</span>
-                            <span class="ml-2 text-sm text-gray-600"
+                            <span class="ml-2 text-sm text-gray-600 dark:text-gray-400"
                                 >({{
                                     formatCurrency(
                                         stats.pendingMovementsAmount,
@@ -103,18 +103,18 @@ const formatCurrency = (amount: number) => {
 
                     <!-- Conciliated This Month -->
                     <div
-                        class="bg-white overflow-hidden shadow-sm sm:rounded-lg p-6 border-l-4 border-blue-500"
+                        class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg p-6 border-l-4 border-blue-500"
                     >
                         <div
-                            class="text-gray-500 text-sm font-medium uppercase"
+                            class="text-gray-500 dark:text-gray-400 text-sm font-medium uppercase"
                         >
                             Conciliados (Mes Actual)
                         </div>
                         <div class="mt-2 flex items-baseline">
-                            <span class="text-3xl font-bold text-gray-900">{{
+                            <span class="text-3xl font-bold text-gray-900 dark:text-white">{{
                                 stats.conciliatedThisMonth
                             }}</span>
-                            <span class="ml-2 text-sm text-gray-600"
+                            <span class="ml-2 text-sm text-gray-600 dark:text-gray-400"
                                 >registros</span
                             >
                         </div>
@@ -125,9 +125,9 @@ const formatCurrency = (amount: number) => {
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
                     <!-- Actions -->
                     <div
-                        class="bg-white overflow-hidden shadow-sm sm:rounded-lg p-6"
+                        class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg p-6"
                     >
-                        <h3 class="text-lg font-medium text-gray-900 mb-4">
+                        <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">
                             Acciones Rápidas
                         </h3>
                         <div class="flex flex-col space-y-3">
@@ -152,7 +152,7 @@ const formatCurrency = (amount: number) => {
                             </button>
                             <Link
                                 :href="route('reconciliation.index')"
-                                class="w-full h-12 flex justify-center items-center px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                                class="w-full h-12 flex justify-center items-center px-4 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                             >
                                 <svg
                                     class="w-5 h-5 mr-2"
@@ -174,13 +174,13 @@ const formatCurrency = (amount: number) => {
 
                     <!-- Recent Activity List -->
                     <div
-                        class="bg-white overflow-hidden shadow-sm sm:rounded-lg p-6"
+                        class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg p-6"
                     >
-                        <h3 class="text-lg font-medium text-gray-900 mb-4">
+                        <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">
                             Actividad Reciente
                         </h3>
                         <ul
-                            class="divide-y divide-gray-200"
+                            class="divide-y divide-gray-200 dark:divide-gray-700"
                             v-if="recentActivity.length > 0"
                         >
                             <li
@@ -189,15 +189,15 @@ const formatCurrency = (amount: number) => {
                                 class="py-3 flex justify-between items-center text-sm"
                             >
                                 <div>
-                                    <p class="font-medium text-gray-900">
+                                    <p class="font-medium text-gray-900 dark:text-white">
                                         {{ activity.invoice }}
                                     </p>
-                                    <p class="text-gray-500 text-xs">
+                                    <p class="text-gray-500 dark:text-gray-400 text-xs">
                                         por {{ activity.user }} •
                                         {{ activity.date }}
                                     </p>
                                 </div>
-                                <div class="font-bold text-green-600">
+                                <div class="font-bold text-green-600 dark:text-green-400">
                                     {{ formatCurrency(activity.amount) }}
                                 </div>
                             </li>

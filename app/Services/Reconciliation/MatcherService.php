@@ -92,6 +92,7 @@ class MatcherService
     {
         DB::transaction(function () use ($invoiceIds, $movementIds, $type) {
             $teamId = auth()->user()->current_team_id;
+            $groupId = \Illuminate\Support\Str::uuid();
 
             $invoices = Factura::where('team_id', $teamId)->findMany($invoiceIds);
             $movements = Movimiento::where('team_id', $teamId)->findMany($movementIds);
@@ -130,6 +131,7 @@ class MatcherService
                     // Case 1-1:
                     if ($invoices->count() == 1 && $movements->count() == 1) {
                         Conciliacion::create([
+                            'group_id' => $groupId,
                             'user_id' => auth()->id(),
                             'team_id' => auth()->user()->current_team_id,
                             'factura_id' => $invoice->id,
@@ -145,6 +147,7 @@ class MatcherService
                         // A safe default for "Partial" is min(invoice, movement).
 
                         Conciliacion::create([
+                            'group_id' => $groupId,
                             'user_id' => auth()->id(),
                             'team_id' => auth()->user()->current_team_id,
                             'factura_id' => $invoice->id,

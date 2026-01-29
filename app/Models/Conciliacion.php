@@ -9,6 +9,7 @@ class Conciliacion extends Model
     // use \App\Models\Traits\UserOwned; // Removed to allow Team-wide visibility
 
     protected $fillable = [
+        'group_id',
         'user_id',
         'factura_id',
         'movimiento_id',

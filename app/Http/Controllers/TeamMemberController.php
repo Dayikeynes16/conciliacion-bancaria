@@ -92,11 +92,27 @@ class TeamMemberController extends Controller
 
         // If the user's current team is the one they were removed from, switch them to another team.
         if ($userToRemove->fresh()->current_team_id == $team->id) {
-            $newTeam = $userToRemove->ownedTeams()->first() ?? $userToRemove->teams()->first();
+            // Priority 1: Personal (Owned) Team
+            $newTeam = $userToRemove->ownedTeams()->first();
 
-            if ($newTeam) {
-                $userToRemove->switchTeam($newTeam);
+            // Priority 2: Any other team they belong to
+            if (! $newTeam) {
+                $newTeam = $userToRemove->teams()->first();
             }
+
+            // Priority 3: Create a Personal Team if none exists (Safety Net)
+            if (! $newTeam) {
+                $newTeam = \App\Models\Team::create([
+                    'user_id' => $userToRemove->id,
+                    'name' => explode(' ', $userToRemove->name, 2)[0]."'s Team",
+                    'personal_team' => true,
+                ]);
+            }
+
+            // Force update current team
+            $userToRemove->forceFill([
+                'current_team_id' => $newTeam->id,
+            ])->save();
         }
 
         return back()->with('success', 'Miembro eliminado del equipo.');

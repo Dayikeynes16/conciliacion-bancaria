@@ -70,15 +70,15 @@ const formatDate = (dateString: string) => {
                 >
                     <!-- Tabs -->
                     <div
-                        class="flex space-x-2 bg-gray-200 p-1 rounded-lg inline-flex"
+                        class="flex space-x-2 bg-gray-200 dark:bg-gray-700 p-1 rounded-lg inline-flex"
                     >
                         <button
                             @click="activeTab = 'pending'"
                             class="px-6 py-2 rounded-md font-bold transition text-sm focus:outline-none"
                             :class="
                                 activeTab === 'pending'
-                                    ? 'bg-white text-indigo-600 shadow-sm'
-                                    : 'text-gray-500 hover:text-gray-700'
+                                    ? 'bg-white dark:bg-gray-800 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
                             "
                         >
                             Pendientes ({{
@@ -91,8 +91,8 @@ const formatDate = (dateString: string) => {
                             class="px-6 py-2 rounded-md font-bold transition text-sm focus:outline-none"
                             :class="
                                 activeTab === 'conciliated'
-                                    ? 'bg-white text-green-600 shadow-sm'
-                                    : 'text-gray-500 hover:text-gray-700'
+                                    ? 'bg-white dark:bg-gray-800 text-green-600 dark:text-green-400 shadow-sm'
+                                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
                             "
                         >
                             Conciliados (Recientes)
@@ -124,7 +124,7 @@ const formatDate = (dateString: string) => {
                             <input
                                 v-model="search"
                                 type="text"
-                                class="block w-full p-2 pl-10 text-sm text-gray-900 border border-gray-300 rounded-lg bg-gray-50 focus:ring-indigo-500 focus:border-indigo-500"
+                                class="block w-full p-2 pl-10 text-sm text-gray-900 dark:text-gray-100 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 focus:ring-indigo-500 focus:border-indigo-500"
                                 placeholder="Buscar ID, RFC, Nombre o Monto..."
                             />
                         </div>
@@ -134,10 +134,10 @@ const formatDate = (dateString: string) => {
                 <!-- Global Totals Summary Cards -->
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                     <div
-                        class="bg-white p-4 rounded-lg shadow-sm border border-indigo-100 flex flex-col"
+                        class="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm border border-indigo-100 dark:border-indigo-900/50 flex flex-col"
                     >
                         <span
-                            class="text-indigo-900 font-semibold text-sm uppercase tracking-wide"
+                            class="text-indigo-900 dark:text-indigo-200 font-semibold text-sm uppercase tracking-wide"
                         >
                             {{
                                 activeTab === "pending"
@@ -145,7 +145,7 @@ const formatDate = (dateString: string) => {
                                     : "Total Facturas Conciliadas"
                             }}
                         </span>
-                        <span class="text-3xl font-bold text-indigo-600 mt-1">
+                        <span class="text-3xl font-bold text-indigo-600 dark:text-indigo-400 mt-1">
                             {{
                                 formatCurrency(
                                     activeTab === "pending"
@@ -156,10 +156,10 @@ const formatDate = (dateString: string) => {
                         </span>
                     </div>
                     <div
-                        class="bg-white p-4 rounded-lg shadow-sm border border-green-100 flex flex-col"
+                        class="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm border border-green-100 dark:border-green-900/50 flex flex-col"
                     >
                         <span
-                            class="text-green-900 font-semibold text-sm uppercase tracking-wide"
+                            class="text-green-900 dark:text-green-200 font-semibold text-sm uppercase tracking-wide"
                         >
                             {{
                                 activeTab === "pending"
@@ -167,7 +167,7 @@ const formatDate = (dateString: string) => {
                                     : "Total Pagos Conciliados"
                             }}
                         </span>
-                        <span class="text-3xl font-bold text-green-600 mt-1">
+                        <span class="text-3xl font-bold text-green-600 dark:text-green-400 mt-1">
                             {{
                                 formatCurrency(
                                     activeTab === "pending"
@@ -182,12 +182,12 @@ const formatDate = (dateString: string) => {
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <!-- Invoices Column -->
                     <div
-                        class="bg-white overflow-hidden shadow-sm sm:rounded-lg flex flex-col h-[600px]"
+                        class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg flex flex-col h-[600px]"
                     >
                         <div
-                            class="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50"
+                            class="p-6 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-700"
                         >
-                            <h3 class="text-lg font-bold text-gray-700">
+                            <h3 class="text-lg font-bold text-gray-700 dark:text-gray-200">
                                 Facturas
                                 {{
                                     activeTab === "pending"
@@ -196,7 +196,7 @@ const formatDate = (dateString: string) => {
                                 }}
                             </h3>
                             <span
-                                class="bg-indigo-100 text-indigo-700 py-1 px-3 rounded-full text-xs font-bold"
+                                class="bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-200 py-1 px-3 rounded-full text-xs font-bold"
                             >
                                 {{
                                     (activeTab === "pending"
@@ -214,14 +214,14 @@ const formatDate = (dateString: string) => {
                                         ? pendingInvoices
                                         : conciliatedInvoices"
                                     :key="invoice.id"
-                                    class="p-4 border border-gray-200 rounded-lg bg-white shadow-sm hover:shadow-md transition"
+                                    class="p-4 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 shadow-sm hover:shadow-md transition"
                                 >
                                     <div
                                         class="flex justify-between items-start"
                                     >
                                         <div class="w-2/3">
                                             <div
-                                                class="font-bold text-gray-800 truncate"
+                                                class="font-bold text-gray-800 dark:text-gray-200 truncate"
                                                 :title="invoice.nombre"
                                             >
                                                 {{ invoice.nombre }}
@@ -256,7 +256,7 @@ const formatDate = (dateString: string) => {
                                             </div>
                                         </div>
                                         <div
-                                            class="font-mono font-bold text-indigo-700 text-lg"
+                                            class="font-mono font-bold text-indigo-700 dark:text-indigo-400 text-lg"
                                         >
                                             {{
                                                 formatCurrency(
@@ -334,12 +334,12 @@ const formatDate = (dateString: string) => {
 
                     <!-- Movements Column -->
                     <div
-                        class="bg-white overflow-hidden shadow-sm sm:rounded-lg flex flex-col h-[600px]"
+                        class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg flex flex-col h-[600px]"
                     >
                         <div
-                            class="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50"
+                            class="p-6 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-700"
                         >
-                            <h3 class="text-lg font-bold text-gray-700">
+                            <h3 class="text-lg font-bold text-gray-700 dark:text-gray-200">
                                 Movimientos
                                 {{
                                     activeTab === "pending"
@@ -348,7 +348,7 @@ const formatDate = (dateString: string) => {
                                 }}
                             </h3>
                             <span
-                                class="bg-green-100 text-green-700 py-1 px-3 rounded-full text-xs font-bold"
+                                class="bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-200 py-1 px-3 rounded-full text-xs font-bold"
                             >
                                 {{
                                     (activeTab === "pending"
@@ -366,14 +366,14 @@ const formatDate = (dateString: string) => {
                                         ? pendingMovements
                                         : conciliatedMovements"
                                     :key="movement.id"
-                                    class="p-4 border border-gray-200 rounded-lg bg-white shadow-sm hover:shadow-md transition"
+                                    class="p-4 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 shadow-sm hover:shadow-md transition"
                                 >
                                     <div
                                         class="flex justify-between items-start"
                                     >
                                         <div class="w-2/3">
                                             <div
-                                                class="font-bold text-gray-800 truncate"
+                                                class="font-bold text-gray-800 dark:text-gray-200 truncate"
                                                 :title="movement.descripcion"
                                             >
                                                 {{ movement.descripcion }}
@@ -398,13 +398,13 @@ const formatDate = (dateString: string) => {
                                             </div>
                                             <div class="mt-2">
                                                 <span
-                                                    class="text-xs badge bg-gray-100 border border-gray-200 text-gray-600 px-2 py-0.5 rounded-full inline-block"
+                                                    class="text-xs badge bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 px-2 py-0.5 rounded-full inline-block"
                                                     >{{ movement.tipo }}</span
                                                 >
                                             </div>
                                         </div>
                                         <div
-                                            class="font-mono font-bold text-green-700 text-lg"
+                                            class="font-mono font-bold text-green-700 dark:text-green-400 text-lg"
                                         >
                                             {{
                                                 formatCurrency(

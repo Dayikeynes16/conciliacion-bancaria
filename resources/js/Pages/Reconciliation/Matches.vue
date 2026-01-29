@@ -12,7 +12,6 @@ const props = defineProps<{
     }>;
     tolerance: {
         amount: number;
-        days: number;
     };
 }>();
 

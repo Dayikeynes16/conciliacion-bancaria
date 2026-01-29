@@ -1,7 +1,11 @@
 <script setup lang="ts">
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout.vue";
-import { Head, useForm, router } from "@inertiajs/vue3";
+import { Head, useForm, router, Link } from "@inertiajs/vue3";
 import { ref, computed } from "vue";
+import PrimaryButton from "@/Components/PrimaryButton.vue";
+import Modal from "@/Components/Modal.vue";
+import SecondaryButton from "@/Components/SecondaryButton.vue";
+import DangerButton from "@/Components/DangerButton.vue";
 
 type Invoice = {
     id: number;
@@ -9,6 +13,7 @@ type Invoice = {
     nombre: string;
     fecha_emision: string;
     monto: number;
+    rfc: string;
 };
 
 type Movement = {
@@ -22,10 +27,14 @@ type Movement = {
 const props = defineProps<{
     invoices: Invoice[];
     movements: Movement[];
+    tolerance: number;
 }>();
 
 const selectedInvoices = ref<number[]>([]);
 const selectedMovements = ref<number[]>([]);
+const showConfirmationModal = ref(false);
+const confirmationMessage = ref("");
+const confirmationTitle = ref("");
 
 const toggleInvoice = (id: number) => {
     if (selectedInvoices.value.includes(id)) {
@@ -63,12 +72,45 @@ const totalMovements = computed(() => {
 const diff = computed(() =>
     totalMovements.value - totalInvoices.value,
 );
-const isMatchable = computed(
-    () =>
-        selectedInvoices.value.length > 0 && selectedMovements.value.length > 0,
-);
 
-const reconcileSelection = () => {
+const validateAndReconcile = () => {
+    let warnings: string[] = [];
+    let title = "Confirmar Conciliación";
+
+    // 1. RFC Consistency Check
+    const selectedInvoiceObjects = props.invoices.filter(i => selectedInvoices.value.includes(i.id));
+    if (selectedInvoiceObjects.length > 1) {
+        const firstRFC = selectedInvoiceObjects[0].rfc;
+        const hasMismatch = selectedInvoiceObjects.some(i => i.rfc !== firstRFC);
+        
+        if (hasMismatch) {
+            title = "Advertencias de Conciliación";
+            warnings.push("⚠ Discrepancia de RFC:\nLas facturas seleccionadas pertenecen a diferentes RFCs receptores. Para conciliar múltiples facturas a un pago, estas deben haber sido emitidas a la misma persona/entidad.");
+        }
+    }
+
+    // 2. Tolerance Check
+    const absDiff = Math.abs(diff.value);
+    const tolerance = props.tolerance || 0.00;
+
+    if (absDiff > (tolerance + 0.001)) {
+        title = warnings.length > 0 ? "Advertencias de Conciliación" : "Diferencia Excede Tolerancia";
+        warnings.push(`⚠ Diferencia de Monto:\nLa diferencia ($${absDiff.toFixed(2)}) es mayor que la tolerancia permitida ($${tolerance.toFixed(2)}).`);
+    }
+
+    if (warnings.length > 0) {
+        confirmationTitle.value = title;
+        confirmationMessage.value = warnings.join("\n\n") + "\n\n¿Estás seguro de que deseas continuar?";
+        showConfirmationModal.value = true;
+        return;
+    }
+
+    // If validations pass, proceed directly
+    submitReconciliation();
+};
+
+const submitReconciliation = () => {
+    showConfirmationModal.value = false;
     processing.value = true;
     router.post(
         route("reconciliation.store"),
@@ -109,7 +151,7 @@ const formatCurrency = (amount: number) => {
 
 const autoReconcile = () => {
     autoReconciling.value = true;
-    router.post(route("reconciliation.auto"), {}, {
+    router.get(route("reconciliation.auto"), {}, {
         onFinish: () => {
             autoReconciling.value = false;
         }
@@ -125,19 +167,28 @@ const autoReconcile = () => {
             <div class="flex justify-between items-center">
                 <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">Mesa de Trabajo</h2>
                 
-                <button 
-                    @click="autoReconcile"
-                    :disabled="autoReconciling"
-                    class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded shadow flex items-center gap-2 disabled:opacity-50"
-                >
-                    <svg v-if="autoReconciling" class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    <span v-if="autoReconciling">Conciliando...</span>
-                    <!-- Basic wand icon -->
-                    <span v-else>Auto Conciliar (Magia)</span>
-                </button>
+                <div class="flex items-center gap-4">
+                    <Link
+                        :href="route('settings.tolerance')"
+                        class="text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 underline decoration-dotted underline-offset-4"
+                    >
+                        Configurar Tolerancia ({{ formatCurrency(props.tolerance) }})
+                    </Link>
+
+                    <button 
+                        @click="autoReconcile"
+                        :disabled="autoReconciling"
+                        class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded shadow flex items-center gap-2 disabled:opacity-50"
+                    >
+                        <svg v-if="autoReconciling" class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span v-if="autoReconciling">Conciliando...</span>
+                        <!-- Basic wand icon -->
+                        <span v-else>Auto Conciliar (Magia)</span>
+                    </button>
+                </div>
             </div>
         </template>
 
@@ -170,7 +221,7 @@ const autoReconcile = () => {
                     </div>
 
                     <PrimaryButton 
-                        @click="reconcileSelection" 
+                        @click="validateAndReconcile" 
                         :disabled="selectedInvoices.length === 0 || selectedMovements.length === 0 || processing"
                     >
                         Conciliar Selección
@@ -266,5 +317,34 @@ const autoReconcile = () => {
                 </div>
             </div>
         </div>
+
+
+        <!-- Confirmation Modal -->
+        <Modal :show="showConfirmationModal" @close="showConfirmationModal = false">
+            <div class="p-6">
+                <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100">
+                    {{ confirmationTitle }}
+                </h2>
+
+                <p class="mt-1 text-sm text-gray-600 dark:text-gray-400 whitespace-pre-line">
+                    {{ confirmationMessage }}
+                </p>
+
+                <div class="mt-6 flex justify-end">
+                    <SecondaryButton @click="showConfirmationModal = false">
+                        Cancelar
+                    </SecondaryButton>
+
+                    <DangerButton
+                        class="ml-3"
+                        :class="{ 'opacity-25': processing }"
+                        :disabled="processing"
+                        @click="submitReconciliation"
+                    >
+                        Confirmar
+                    </DangerButton>
+                </div>
+            </div>
+        </Modal>
     </AuthenticatedLayout>
 </template>

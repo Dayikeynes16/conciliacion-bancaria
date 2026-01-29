@@ -37,9 +37,10 @@ Route::middleware('auth')->group(function () {
     // Reconciliation Routes
     Route::get('/reconciliation', [App\Http\Controllers\ReconciliationController::class, 'index'])->name('reconciliation.index');
     Route::post('/reconciliation', [App\Http\Controllers\ReconciliationController::class, 'store'])->name('reconciliation.store');
-    Route::post('/reconciliation/auto', [App\Http\Controllers\ReconciliationController::class, 'auto'])->name('reconciliation.auto');
+    Route::get('/reconciliation/auto', [App\Http\Controllers\ReconciliationController::class, 'auto'])->name('reconciliation.auto');
     Route::post('/reconciliation/batch', [App\Http\Controllers\ReconciliationController::class, 'batch'])->name('reconciliation.batch');
     Route::delete('/reconciliation/{id}', [App\Http\Controllers\ReconciliationController::class, 'destroy'])->name('reconciliation.destroy');
+    Route::delete('/reconciliation/group/{groupId}', [App\Http\Controllers\ReconciliationController::class, 'destroyGroup'])->name('reconciliation.group.destroy');
     Route::get('/reconciliation/history', [App\Http\Controllers\ReconciliationController::class, 'history'])->name('reconciliation.history');
     Route::get('/reconciliation/status', [App\Http\Controllers\ReconciliationController::class, 'status'])->name('reconciliation.status');
 

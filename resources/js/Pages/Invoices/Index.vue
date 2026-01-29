@@ -67,16 +67,35 @@ const formatCurrency = (amount: number) => {
     }).format(amount);
 };
 
-const deleteInvoice = (file: { id: number }) => {
-    if (
-        confirm(
-            "¿Estás seguro de que deseas eliminar esta factura? Esta acción no se puede deshacer.",
-        )
-    ) {
-        router.delete(route("invoices.destroy", file.id), {
-            preserveScroll: true,
-        });
-    }
+import ConfirmationModal from "@/Components/ConfirmationModal.vue";
+import PrimaryButton from "@/Components/PrimaryButton.vue";
+import SecondaryButton from "@/Components/SecondaryButton.vue";
+import { useForm } from "@inertiajs/vue3";
+
+const confirmingFileDeletion = ref(false);
+const fileIdToDelete = ref<number | null>(null);
+const form = useForm({});
+
+const confirmFileDeletion = (id: number) => {
+    fileIdToDelete.value = id;
+    confirmingFileDeletion.value = true;
+};
+
+const deleteFile = () => {
+    if (!fileIdToDelete.value) return;
+
+    form.delete(route("invoices.destroy", fileIdToDelete.value), {
+        preserveScroll: true,
+        onSuccess: () => closeModal(),
+        onError: () => (fileIdToDelete.value = null),
+        onFinish: () => form.reset(),
+    });
+};
+
+const closeModal = () => {
+    confirmingFileDeletion.value = false;
+    fileIdToDelete.value = null;
+    form.reset();
 };
 </script>
 
@@ -187,7 +206,7 @@ const deleteInvoice = (file: { id: number }) => {
                                             ID
                                         </th>
                                         <th scope="col" class="py-3 px-6">
-                                            Emisor (RFC)
+                                            Receptor (RFC)
                                         </th>
                                         <th scope="col" class="py-3 px-6">
                                             Nombre
@@ -201,9 +220,7 @@ const deleteInvoice = (file: { id: number }) => {
                                         <th scope="col" class="py-3 px-6">
                                             Estado
                                         </th>
-                                        <th scope="col" class="py-3 px-6">
-                                            Archivo
-                                        </th>
+
                                         <th
                                             scope="col"
                                             class="py-3 px-6 text-right"
@@ -267,15 +284,12 @@ const deleteInvoice = (file: { id: number }) => {
                                                 Pendiente
                                             </span>
                                         </td>
-                                        <td
-                                            class="py-4 px-6 truncate max-w-xs"
-                                            :title="file.path"
-                                        >
-                                            {{ file.path.split("/").pop() }}
-                                        </td>
+
                                         <td class="py-4 px-6 text-right">
                                             <button
-                                                @click="deleteInvoice(file)"
+                                                @click="
+                                                    confirmFileDeletion(file.id)
+                                                "
                                                 class="font-medium text-red-600 dark:text-red-500 hover:underline"
                                             >
                                                 Eliminar
@@ -289,5 +303,29 @@ const deleteInvoice = (file: { id: number }) => {
                 </div>
             </div>
         </div>
+        <ConfirmationModal :show="confirmingFileDeletion" @close="closeModal">
+            <template #title> Eliminar Factura </template>
+
+            <template #content>
+                ¿Estás seguro de que deseas eliminar esta factura? Esta acción
+                eliminará el archivo y todos los registros asociados
+                permanentemente.
+            </template>
+
+            <template #footer>
+                <SecondaryButton @click="closeModal">
+                    Cancelar
+                </SecondaryButton>
+
+                <PrimaryButton
+                    class="ml-3 bg-red-600 hover:bg-red-500 focus:bg-red-700 active:bg-red-900 border-red-600 focus:ring-red-500"
+                    :class="{ 'opacity-25': form.processing }"
+                    :disabled="form.processing"
+                    @click="deleteFile"
+                >
+                    Eliminar
+                </PrimaryButton>
+            </template>
+        </ConfirmationModal>
     </AuthenticatedLayout>
 </template>

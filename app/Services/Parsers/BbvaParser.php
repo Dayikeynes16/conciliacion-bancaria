@@ -46,7 +46,7 @@ class BbvaParser extends AbstractBankParser
                         $colMap['fecha'] = $colIndex;
                     } elseif (str_contains($colName, 'descripci') || str_contains($colName, 'concepto')) {
                         $colMap['descripcion'] = $colIndex;
-                    } elseif (str_contains($colName, 'abono') || str_contains($colName, 'depósito') || str_contains($colName, 'deposito')) {
+                    } elseif (str_contains($colName, 'abono') || str_contains($colName, 'depósito') || str_contains($colName, 'deposito') || str_contains($colName, 'crédito') || str_contains($colName, 'credito')) {
                         $colMap['abono'] = $colIndex;
                     } elseif (str_contains($colName, 'cargo') || str_contains($colName, 'retiro')) {
                         $colMap['cargo'] = $colIndex;

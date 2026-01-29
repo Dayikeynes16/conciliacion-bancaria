@@ -13,11 +13,14 @@ class MovimientoController extends Controller
         $year = $request->input('year');
 
         $files = Archivo::where('team_id', auth()->user()->current_team_id)
-            ->whereHas('movimientos', function ($query) use ($month, $year) {
-                 if ($month && $year) {
-                     $query->whereMonth('fecha', $month)
-                           ->whereYear('fecha', $year);
-                 }
+            ->whereNotNull('banco_id')
+            ->where(function ($query) use ($month, $year) {
+                $query->whereHas('movimientos', function ($q) use ($month, $year) {
+                    if ($month && $year) {
+                        $q->whereMonth('fecha', $month)
+                          ->whereYear('fecha', $year);
+                    }
+                })->orWhereDoesntHave('movimientos');
             })
             ->with(['banco'])
             ->withCount('movimientos')

@@ -37,5 +37,6 @@ export type PageProps<
         success?: string;
         error?: string;
         warning?: string;
+        toasts?: Array<{ type: 'success' | 'error' | 'warning', message: string }>;
     };
 };

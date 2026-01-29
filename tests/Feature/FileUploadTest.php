@@ -44,7 +44,7 @@ test('upload processes xml files correctly', function () {
         ]);
 
     $response->assertSessionHasNoErrors();
-    $response->assertSessionHas('success');
+    $response->assertSessionHas('toasts');
 
     // Assert DB
     $this->assertDatabaseHas('archivos', [
@@ -66,7 +66,7 @@ test('upload processes statement file correctly', function () {
     // Mock Bbva Parser
     $this->mock(BbvaParser::class, function ($mock) {
         $mock->shouldReceive('parse')
-            ->andReturn(collect([
+            ->andReturn([
                 [
                     'fecha' => '2023-01-01',
                     'descripcion' => 'Deposit',
@@ -74,7 +74,7 @@ test('upload processes statement file correctly', function () {
                     'tipo' => 'abono',
                     'referencia' => 'REF123',
                 ],
-            ]));
+            ]);
     });
 
     $file = UploadedFile::fake()->create('edo_cuenta.xlsx', 100, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
@@ -82,13 +82,94 @@ test('upload processes statement file correctly', function () {
     $response = $this->actingAs($user)
         ->post(route('upload.store'), [
             'statement' => $file,
+            'bank_code' => 'BBVA',
         ]);
 
     $response->assertSessionHasNoErrors();
+    $response->assertSessionHas('toasts', function ($toasts) {
+        return collect($toasts)->contains(function ($toast) {
+            return str_contains($toast['message'], 'movimientos cargados') && $toast['type'] === 'success';
+        });
+    });
 
     $this->assertDatabaseHas('movimientos', [
         'user_id' => $user->id,
         'monto' => 500.00,
         'tipo' => 'abono',
     ]);
+});
+
+test('upload processes xml files correctly with json response', function () {
+    Storage::fake('local');
+    $user = User::factory()->create();
+
+    $this->mock(CfdiParserService::class, function ($mock) {
+        $mock->shouldReceive('parse')->andReturn([
+            'uuid' => 'JSON-UUID',
+            'total' => 200.00,
+            'fecha_emision' => '2023-01-02',
+            'rfc_emisor' => 'JSON123456T12',
+            'nombre_emisor' => 'JSON Emisor',
+            'rfc_receptor' => 'XYZ123456T12',
+            'nombre_receptor' => 'Test Receptor',
+        ]);
+    });
+
+    $file = UploadedFile::fake()->create('factura_json.xml', 100, 'text/xml');
+
+    $response = $this->actingAs($user)
+        ->postJson(route('upload.store'), [
+            'files' => [$file],
+        ]);
+
+    $response->assertOk()
+        ->assertJson([
+            'success' => true,
+            'processed_xml_count' => 1,
+        ]);
+});
+
+test('can delete uploaded file', function () {
+    Storage::fake('local');
+    $user = User::factory()->create();
+    $team = \App\Models\Team::create([
+        'user_id' => $user->id,
+        'name' => 'Test Team',
+        'personal_team' => true,
+    ]);
+    $user->forceFill(['current_team_id' => $team->id])->save();
+
+    // Mock Parser
+    $this->mock(CfdiParserService::class, function ($mock) {
+        $mock->shouldReceive('parse')->andReturn([
+            'uuid' => 'DELETE-UUID',
+            'total' => 500.00,
+            'fecha_emision' => '2023-01-05',
+            'rfc_emisor' => 'DEL123456T12',
+            'nombre_emisor' => 'Delete Emisor',
+            'rfc_receptor' => 'XYZ123456T12',
+            'nombre_receptor' => 'Test Receptor',
+        ]);
+    });
+    
+    $file = UploadedFile::fake()->create('factura.xml', 100, 'application/xml');
+
+    // 1. Upload file
+    $response = $this->actingAs($user)
+        ->postJson(route('upload.store'), [
+            'files' => [$file],
+        ]);
+    
+    $response->assertOk();
+    
+    $archivo = \App\Models\Archivo::first();
+    $this->assertNotNull($archivo);
+    
+    // 2. Delete file via FacturaController (invoices.destroy)
+    $response = $this->actingAs($user)
+        ->delete(route('invoices.destroy', $archivo->id));
+        
+    $response->assertRedirect(route('invoices.index'));
+    $this->assertDatabaseMissing('archivos', ['id' => $archivo->id]);
+    $this->assertDatabaseMissing('facturas', ['file_id_xml' => $archivo->id]);
 });

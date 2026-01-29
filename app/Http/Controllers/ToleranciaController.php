@@ -30,7 +30,6 @@ class ToleranciaController extends Controller
             [
                 'monto' => 0.00,
                 'user_id' => $user->id, // Assign current owner as creator
-                'dias' => 0,
             ]
         );
 
@@ -53,14 +52,12 @@ class ToleranciaController extends Controller
 
         $request->validate([
             'monto' => 'required|numeric|min:0',
-            'dias' => 'required|integer|min:0',
         ]);
 
         $tolerancia = Tolerancia::firstOrCreate(['team_id' => $team->id]);
 
         $tolerancia->update([
             'monto' => $request->monto,
-            'dias' => $request->dias,
         ]);
 
         return Redirect::route('settings.tolerance')->with('success', 'Configuración de tolerancia actualizada.');

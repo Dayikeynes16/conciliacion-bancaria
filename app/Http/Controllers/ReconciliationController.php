@@ -38,9 +38,17 @@ class ReconciliationController extends Controller
             ->orderBy('fecha', 'desc')
             ->get();
 
+        // Fetch Tolerance Settings
+        $tolerancia = \App\Models\Tolerancia::firstOrCreate(
+            ['team_id' => $teamId],
+            ['monto' => 0.00, 'user_id' => auth()->id()]
+        );
+        $toleranceAmount = (float) ($tolerancia->monto ?? 0.00);
+
         return Inertia::render('Reconciliation/Workbench', [
             'invoices' => $invoices,
             'movements' => $movements,
+            'tolerance' => $toleranceAmount,
         ]);
     }
 
@@ -51,10 +59,9 @@ class ReconciliationController extends Controller
         // Fetch Tolerance Settings
         $tolerancia = \App\Models\Tolerancia::firstOrCreate(
             ['team_id' => $teamId],
-            ['monto' => 0.00, 'dias' => 0, 'user_id' => auth()->id()]
+            ['monto' => 0.00, 'user_id' => auth()->id()]
         );
         $toleranceAmount = (float) ($tolerancia->monto ?? 0.00);
-        $toleranceDays = (int) ($tolerancia->dias ?? 0);
 
         $month = $request->input('month');
         $year = $request->input('year');
@@ -71,7 +78,6 @@ class ReconciliationController extends Controller
             'matches' => $matches,
             'tolerance' => [
                 'amount' => $toleranceAmount,
-                'days' => $toleranceDays,
             ],
         ]);
     }
@@ -114,40 +120,84 @@ class ReconciliationController extends Controller
         $teamId = auth()->user()->current_team_id;
         $search = $request->input('search');
 
-        // Middleware sets 'month' and 'year'
-        // But history also needs to filter by these?
-        // Yes, "all views... only show data for that period".
-        // Currently history doesn't filter by month/year in previous turn?
-        // Let's add it.
-
         $month = $request->input('month');
         $year = $request->input('year');
 
-        // Fetch Invoices that have at least one conciliation
-        // grouped by invoice essentially
-        $reconciledInvoices = Factura::where('team_id', $teamId)
-            ->has('conciliaciones')
-            // Filter History by Invoice Date? Or Conciliation Date?
-            // "Show me facturas and payments of selected..."
-            // Usually history shows when it was reconciled, OR the date of the items.
-            // Let's stick to Invoice Date for consistency with Workbench.
-            ->whereMonth('fecha_emision', $month)
-            ->whereYear('fecha_emision', $year)
-            ->when($search, function ($query, $search) {
-                $query->where(function ($q) use ($search) {
-                    $q->where('nombre', 'like', "%{$search}%")
-                        ->orWhere('rfc', 'like', "%{$search}%")
-                        ->orWhere('uuid', 'like', "%{$search}%")
-                        ->orWhere('monto', 'like', "%{$search}%");
-                });
-            })
-            ->with(['conciliaciones.movimiento', 'conciliaciones.user'])
-            ->latest('updated_at') // Sort by most recently updated/reconciled
-            ->paginate(15)
-            ->withQueryString();
+        // 1. paginate distinct group_ids
+        $query = Conciliacion::query()
+            ->join('facturas', 'conciliacions.factura_id', '=', 'facturas.id')
+            ->join('movimientos', 'conciliacions.movimiento_id', '=', 'movimientos.id')
+            ->where('facturas.team_id', $teamId) // Ensure team ownership
+            ->whereMonth('conciliacions.created_at', $month)
+            ->whereYear('conciliacions.created_at', $year)
+            ->distinct()
+            ->select('conciliacions.group_id', 'conciliacions.created_at'); // Select created_at for sorting
+
+        if ($search) {
+             // Search logic is harder with groups. 
+             // We need groups containing matching invoices/movements.
+             $query->where(function($q) use ($search) {
+                 $q->where('facturas.nombre', 'like', "%{$search}%")
+                   ->orWhere('facturas.rfc', 'like', "%{$search}%")
+                   ->orWhere('movimientos.descripcion', 'like', "%{$search}%")
+                   ->orWhere('movimientos.referencia', 'like', "%{$search}%")
+                   ->orWhere('movimientos.monto', 'like', "%{$search}%");
+             });
+        }
+        
+        $groupsPager = $query->latest('conciliacions.created_at')
+                             ->paginate(15)
+                             ->withQueryString();
+
+        // 2. Fetch details for these groups
+        $groupIds = collect($groupsPager->items())->pluck('group_id');
+        
+        $details = Conciliacion::whereIn('group_id', $groupIds)
+            ->with(['factura', 'movimiento', 'user'])
+            ->get()
+            ->groupBy('group_id');
+
+        // 3. Transform to clean structure
+        $transformedGroups = collect($groupsPager->items())->map(function($groupItem) use ($details) {
+            $groupId = $groupItem->group_id;
+            $items = $details->get($groupId);
+            
+            if (!$items) return null;
+
+            $first = $items->first();
+            
+            // Unique Invoices and Movements
+            $invoices = $items->pluck('factura')->unique('id')->values();
+            $movements = $items->pluck('movimiento')->unique('id')->values();
+
+            $totalInvoices = $invoices->sum('monto');
+            $totalMovements = $movements->sum('monto');
+            
+            // Total Applied in this specific batch? 
+            // Sum of monto_aplicado of all items in this group
+            $totalApplied = $items->sum('monto_aplicado');
+
+            return [
+                'id' => $groupId,
+                'created_at' => $first->created_at,
+                'user' => $first->user,
+                'invoices' => $invoices,
+                'movements' => $movements,
+                'total_invoices' => $totalInvoices,
+                'total_movements' => $totalMovements,
+                'total_applied' => $totalApplied,
+            ];
+        })->filter();
+
+        // Reconstruct paginator with transformed data
+        // We use Custom Paginator or just pass 'data' and 'links' manually?
+        // Inertia handles LengthAwarePaginator.
+        // We can just keep $groupsPager structure but replace 'data'.
+        
+        $groupsPager->setCollection($transformedGroups);
 
         return Inertia::render('Reconciliation/History', [
-            'reconciledGroups' => $reconciledInvoices,
+            'reconciledGroups' => $groupsPager,
             'filters' => [
                 'search' => $search,
                 'month' => $month,
@@ -256,5 +306,23 @@ class ReconciliationController extends Controller
         $conciliacion->delete();
 
         return back()->with('success', 'Conciliación eliminada exitosamente.');
+    }
+
+    public function destroyGroup($groupId)
+    {
+        // Find one record to verify team ownership
+        $first = Conciliacion::where('group_id', $groupId)->firstOrFail();
+        
+        // This check is a bit tricky if we join but simpler:
+        // ensure item belongs to user's team.
+        // We can just rely on the join logic or check one relation.
+        if ($first->factura->team_id !== auth()->user()->current_team_id) {
+            abort(403);
+        }
+
+        // Delete all with this group_id
+        Conciliacion::where('group_id', $groupId)->delete();
+
+        return back()->with('success', 'Grupo de conciliación desvinculado exitosamente.');
     }
 }

@@ -4,29 +4,35 @@ import { Head, Link } from "@inertiajs/vue3";
 import { router } from "@inertiajs/vue3";
 import { ref, watch } from "vue";
 import debounce from "lodash/debounce";
+import ConfirmationModal from "@/Components/ConfirmationModal.vue";
+import PrimaryButton from "@/Components/PrimaryButton.vue";
+import SecondaryButton from "@/Components/SecondaryButton.vue";
+import { useForm } from "@inertiajs/vue3";
 
 const props = defineProps<{
     reconciledGroups: {
         data: Array<{
-            id: number;
-            uuid: string;
-            nombre: string;
-            rfc: string;
-            monto: number;
-            fecha_emision: string;
-            conciliaciones: Array<{
+            id: string; // Group UUID
+            created_at: string;
+            user: { name: string };
+            invoices: Array<{
                 id: number;
-                monto_aplicado: number;
-                created_at: string;
-                user: { name: string };
-                movimiento: {
-                    id: number;
-                    descripcion: string;
-                    fecha: string;
-                    tipo: string;
-                    monto: number;
-                };
+                uuid: string;
+                nombre: string;
+                rfc: string;
+                monto: number;
+                fecha_emision: string;
             }>;
+            movements: Array<{
+                id: number;
+                descripcion: string;
+                referencia: string;
+                fecha: string;
+                monto: number;
+            }>;
+            total_invoices: number;
+            total_movements: number;
+            total_applied: number;
         }>;
         links: Array<any>;
     };
@@ -68,24 +74,35 @@ const formatCurrency = (amount: number) => {
         currency: "MXN",
     }).format(amount);
 };
-const getReconciledTotal = (invoice: any) => {
-    return invoice.conciliaciones.reduce((sum: number, c: any) => sum + Number(c.monto_aplicado), 0);
+
+const getDifference = (group: any) => {
+    return Number(group.total_movements) - Number(group.total_applied);
 };
 
-const getDifference = (invoice: any) => {
-    const total = getReconciledTotal(invoice);
-    return total - Number(invoice.monto);
+const confirmingUnreconcile = ref(false);
+const groupIdToUnlink = ref<string | null>(null);
+const form = useForm({});
+
+const confirmUnreconcile = (groupId: string) => {
+    groupIdToUnlink.value = groupId;
+    confirmingUnreconcile.value = true;
 };
 
-const confirmUnreconcile = (conciliacion: any) => {
-    if (confirm("¿Estás seguro de que deseas desvincular este pago? Esta acción revertirá la conciliación.")) {
-        router.delete(route("reconciliation.destroy", conciliacion.id), {
-            preserveScroll: true,
-            onSuccess: () => {
-                // Optional: Show toast or just rely on backend flash message
-            },
-        });
-    }
+const unreconcile = () => {
+    if (!groupIdToUnlink.value) return;
+
+    form.delete(route("reconciliation.group.destroy", groupIdToUnlink.value), {
+        preserveScroll: true,
+        onSuccess: () => closeModal(),
+        onError: () => (groupIdToUnlink.value = null),
+        onFinish: () => form.reset(),
+    });
+};
+
+const closeModal = () => {
+    confirmingUnreconcile.value = false;
+    groupIdToUnlink.value = null;
+    form.reset();
 };
 </script>
 
@@ -101,6 +118,7 @@ const confirmUnreconcile = (conciliacion: any) => {
 
         <div class="py-12">
             <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
+                <!-- Search Bar -->
                 <div class="flex justify-between items-center mb-6">
                     <div class="relative w-full max-w-md">
                         <div
@@ -116,224 +134,132 @@ const confirmUnreconcile = (conciliacion: any) => {
                                     fill-rule="evenodd"
                                     d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z"
                                     clip-rule="evenodd"
-                                />
+                                    />
                             </svg>
                         </div>
                         <input
                             v-model="search"
                             type="text"
-                            class="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                            class="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md leading-5 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:placeholder-gray-400 dark:focus:placeholder-gray-300 focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                             placeholder="Buscar por factura, RFC o monto..."
                         />
                     </div>
                 </div>
 
+                <!-- Empty State -->
                 <div
                     v-if="reconciledGroups.data.length === 0"
-                    class="bg-white overflow-hidden shadow-sm sm:rounded-lg p-6 text-center text-gray-500"
+                    class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg p-6 text-center text-gray-500 dark:text-gray-400"
                 >
                     No hay conciliaciones registradas aún.
                 </div>
 
+                <!-- Groups List -->
                 <div v-else class="space-y-8">
                     <div
-                        v-for="invoice in reconciledGroups.data"
-                        :key="invoice.id"
-                        class="bg-white shadow-sm sm:rounded-lg overflow-hidden border border-gray-200"
+                        v-for="group in reconciledGroups.data"
+                        :key="group.id"
+                        class="bg-white dark:bg-gray-800 shadow-sm sm:rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700"
                     >
-                        <!-- Invoice Header -->
+                        <!-- Group Header -->
                         <div
-                            class="bg-indigo-50/50 px-6 py-4 border-b border-indigo-100 flex flex-col md:flex-row justify-between md:items-center gap-4"
+                            class="bg-gray-50 dark:bg-gray-900/50 px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex flex-col md:flex-row justify-between md:items-center gap-4"
                         >
                             <div>
-                                <div class="flex items-center gap-2">
-                                    <span
-                                        class="bg-indigo-600 text-white px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wide"
-                                        >Factura</span
-                                    >
-                                    <h3
-                                        class="text-lg font-bold text-gray-900 border-b border-dashed border-gray-400 inline-block"
-                                        :title="invoice.nombre"
-                                    >
-                                        {{
-                                            invoice.nombre ||
-                                            "Factura Eliminada"
-                                        }}
-                                    </h3>
-                                </div>
-                                <div
-                                    class="text-sm text-gray-500 mt-1 font-mono"
-                                >
-                                    {{ invoice.uuid }}
+                                <h3 class="text-sm font-bold uppercase tracking-wider text-gray-500">
+                                    Conciliación
+                                </h3>
+                                <div class="text-sm text-gray-400 mt-1">
+                                    {{ formatDate(group.created_at) }} • {{ group.user.name }}
                                 </div>
                             </div>
+                            
                             <div class="flex gap-8 text-right">
                                 <div>
-                                    <div class="text-xs text-gray-500">
-                                        Monto Factura
-                                    </div>
-                                    <div
-                                        class="text-xl font-bold text-indigo-700"
-                                    >
-                                        {{
-                                            formatCurrency(
-                                                Number(invoice.monto),
-                                            )
-                                        }}
-                                    </div>
-                                    <div class="text-xs text-gray-400">
-                                        {{
-                                            formatDate(invoice.fecha_emision)
-                                        }}
+                                    <div class="text-xs text-gray-500">Total Facturas</div>
+                                    <div class="text-lg font-bold text-gray-800 dark:text-gray-200">
+                                        {{ formatCurrency(group.total_invoices) }}
                                     </div>
                                 </div>
                                 <div>
-                                    <div class="text-xs text-gray-500">
-                                        Total Conciliado
-                                    </div>
-                                    <div
-                                        class="text-xl font-bold text-green-600"
-                                    >
-                                        {{
-                                            formatCurrency(
-                                                getReconciledTotal(invoice),
-                                            )
-                                        }}
+                                    <div class="text-xs text-gray-500">Total Pagos</div>
+                                    <div class="text-lg font-bold text-gray-800 dark:text-gray-200">
+                                        {{ formatCurrency(group.total_movements) }}
                                     </div>
                                 </div>
                                 <div>
-                                    <div class="text-xs text-gray-500">
-                                        Diferencia
-                                    </div>
+                                    <div class="text-xs text-gray-500">Diferencia</div>
                                     <div
                                         class="text-xl font-bold"
                                         :class="{
-                                            'text-green-600': getDifference(invoice) > 0.01,
-                                            'text-red-500': getDifference(invoice) < -0.01,
-                                            'text-gray-400': getDifference(invoice) >= -0.01 && getDifference(invoice) <= 0.01,
+                                            'text-gray-400': Math.abs(getDifference(group)) < 0.01,
+                                            'text-green-600 dark:text-green-400': getDifference(group) >= 0.01,
+                                            'text-red-500 dark:text-red-400': getDifference(group) <= -0.01
                                         }"
                                     >
-                                        {{
-                                            formatCurrency(
-                                                getDifference(invoice),
-                                            )
-                                        }}
+                                        {{ formatCurrency(getDifference(group)) }}
                                     </div>
+                                </div>
+                                <div class="flex items-center">
+                                     <button
+                                        @click="confirmUnreconcile(group.id)"
+                                        class="text-xs text-red-500 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 font-medium underline"
+                                    >
+                                        Desvincular Grupo
+                                    </button>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Associated Payments -->
-                        <div class="p-6">
-                            <h4
-                                class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4 border-b pb-2"
-                            >
-                                Pagos Asociados ({{
-                                    invoice.conciliaciones.length
-                                }})
-                            </h4>
-
-                            <div class="space-y-4">
-                                <div
-                                    v-for="conciliacion in invoice.conciliaciones"
-                                    :key="conciliacion.id"
-                                    class="flex flex-col sm:flex-row items-center justify-between p-4 rounded-lg bg-gray-50 border border-gray-100 hover:border-gray-300 transition-colors"
-                                >
-                                    <div
-                                        class="flex items-start gap-4 w-full sm:w-auto"
+                        <!-- Content Grid: Invoices vs Payments -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-gray-200 dark:divide-gray-700">
+                            
+                            <!-- Left: Invoices -->
+                            <div class="p-6 bg-indigo-50/10">
+                                <h4 class="text-xs font-semibold text-indigo-600 dark:text-indigo-400 uppercase tracking-widest mb-4">
+                                    Facturas ({{ group.invoices.length }})
+                                </h4>
+                                <div class="space-y-3">
+                                    <div 
+                                        v-for="invoice in group.invoices" 
+                                        :key="invoice.id"
+                                        class="flex justify-between items-start text-sm p-3 bg-white dark:bg-gray-800 rounded border border-gray-100 dark:border-gray-700"
                                     >
-                                        <div
-                                            class="p-2 bg-green-100 text-green-600 rounded-full shrink-0"
-                                        >
-                                            <svg
-                                                xmlns="http://www.w3.org/2000/svg"
-                                                class="h-5 w-5"
-                                                viewBox="0 0 20 20"
-                                                fill="currentColor"
-                                            >
-                                                <path
-                                                    fill-rule="evenodd"
-                                                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                                                    clip-rule="evenodd"
-                                                />
-                                            </svg>
-                                        </div>
                                         <div>
-                                            <div
-                                                class="font-medium text-gray-900"
-                                            >
-                                                {{
-                                                    conciliacion.movimiento
-                                                        ?.descripcion ||
-                                                    "Movimiento Eliminado"
-                                                }}
-                                            </div>
-                                            <div
-                                                class="text-xs text-gray-400 mt-1"
-                                                v-if="
-                                                    conciliacion.movimiento
-                                                        ?.fecha
-                                                "
-                                            >
-                                                Fecha Movimiento:
-                                                {{
-                                                    formatDate(
-                                                        conciliacion.movimiento
-                                                            .fecha,
-                                                    )
-                                                }}
-                                            </div>
-                                            <div
-                                                class="text-xs text-gray-500 mt-0.5"
-                                            >
-                                                Conciliado por:
-                                                <span
-                                                    class="font-medium text-gray-700"
-                                                    >{{
-                                                        conciliacion.user
-                                                            ?.name ||
-                                                        "Desconocido"
-                                                    }}</span
-                                                >
-                                                •
-                                                {{
-                                                    formatDate(
-                                                        conciliacion.created_at,
-                                                    )
-                                                }}
-                                            </div>
+                                            <div class="font-medium text-gray-900 dark:text-white">{{ invoice.nombre || 'Factura Eliminada' }}</div>
+                                            <div class="text-xs text-gray-500">{{ invoice.uuid }}</div>
+                                            <div class="text-xs text-gray-400">{{ formatDate(invoice.fecha_emision) }}</div>
                                         </div>
-                                    </div>
-
-                                    <div
-                                        class="mt-4 sm:mt-0 text-right w-full sm:w-auto pl-14 sm:pl-0"
-                                    >
-                                        <div
-                                            class="text-xs text-gray-500 mb-0.5"
-                                        >
-                                            Monto Aplicado
+                                        <div class="font-bold text-gray-700 dark:text-gray-300">
+                                            {{ formatCurrency(Number(invoice.monto)) }}
                                         </div>
-                                        <div
-                                            class="font-bold text-green-600 text-lg mb-2"
-                                        >
-                                            {{
-                                                formatCurrency(
-                                                    Number(
-                                                        conciliacion.monto_aplicado,
-                                                    ),
-                                                )
-                                            }}
-                                        </div>
-                                        
-                                        <button
-                                            @click="confirmUnreconcile(conciliacion)"
-                                            class="text-xs text-red-500 hover:text-red-700 font-medium underline"
-                                        >
-                                            Desvincular
-                                        </button>
                                     </div>
                                 </div>
                             </div>
+
+                            <!-- Right: Payments -->
+                            <div class="p-6 bg-green-50/10">
+                                <h4 class="text-xs font-semibold text-green-600 dark:text-green-400 uppercase tracking-widest mb-4">
+                                    Pagos ({{ group.movements.length }})
+                                </h4>
+                                <div class="space-y-3">
+                                    <div 
+                                        v-for="movement in group.movements" 
+                                        :key="movement.id"
+                                        class="flex justify-between items-start text-sm p-3 bg-white dark:bg-gray-800 rounded border border-gray-100 dark:border-gray-700"
+                                    >
+                                        <div>
+                                            <div class="font-medium text-gray-900 dark:text-white">{{ movement.descripcion || 'Sin Descripción' }}</div>
+                                            <div class="text-xs text-gray-500">{{ movement.referencia || 'Ref: N/A' }}</div>
+                                            <div class="text-xs text-gray-400">{{ formatDate(movement.fecha) }}</div>
+                                        </div>
+                                        <div class="font-bold text-gray-700 dark:text-gray-300">
+                                            {{ formatCurrency(Number(movement.monto)) }}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
                         </div>
                     </div>
                 </div>
@@ -366,5 +292,31 @@ const confirmUnreconcile = (conciliacion: any) => {
                 </div>
             </div>
         </div>
+
+        <ConfirmationModal :show="confirmingUnreconcile" @close="closeModal">
+            <template #title> Desvincular Grupo de Conciliación </template>
+
+            <template #content>
+                ¿Estás seguro de que deseas desvincular este grupo completo? 
+                Se eliminarán las relaciones entre {{ reconciledGroups.data.find(g => g.id === groupIdToUnlink)?.invoices.length }} facturas y 
+                {{ reconciledGroups.data.find(g => g.id === groupIdToUnlink)?.movements.length }} pagos.
+                El saldo volverá a estar pendiente.
+            </template>
+
+            <template #footer>
+                <SecondaryButton @click="closeModal">
+                    Cancelar
+                </SecondaryButton>
+
+                <PrimaryButton
+                    class="ml-3 bg-red-600 hover:bg-red-500 focus:bg-red-700 active:bg-red-900 border-red-600 focus:ring-red-500"
+                    :class="{ 'opacity-25': form.processing }"
+                    :disabled="form.processing"
+                    @click="unreconcile"
+                >
+                    Desvincular Grupo
+                </PrimaryButton>
+            </template>
+        </ConfirmationModal>
     </AuthenticatedLayout>
 </template>

@@ -12,7 +12,7 @@ const props = defineProps({
 
 const form = useForm({
     monto: props.tolerancia.monto,
-    dias: props.tolerancia.dias || 0,
+    monto: props.tolerancia.monto,
 });
 
 const submit = () => {
@@ -62,19 +62,7 @@ const submit = () => {
                                     <InputError class="mt-2" :message="form.errors.monto" />
                                 </div>
 
-                                <div>
-                                    <InputLabel for="dias" value="Días de Tolerancia (± Días)" />
-                                    <TextInput
-                                        id="dias"
-                                        type="number"
-                                        class="mt-1 block w-full"
-                                        v-model="form.dias"
-                                        required
-                                        autocomplete="off"
-                                    />
-                                    <p class="mt-1 text-xs text-gray-500">Margen de días permitidos entre movimiento y factura.</p>
-                                    <InputError class="mt-2" :message="form.errors.dias" />
-                                </div>
+
 
                                 <div class="flex items-center gap-4">
                                     <PrimaryButton :disabled="form.processing">Guardar</PrimaryButton>
