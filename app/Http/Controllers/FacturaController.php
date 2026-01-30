@@ -11,32 +11,52 @@ class FacturaController extends Controller
     public function index(Request $request)
     {
         $search = $request->input('search');
-
         $month = $request->input('month');
         $year = $request->input('year');
+        $date = $request->input('date');
+        $sort = $request->input('sort', 'created_at');
+        $direction = $request->input('direction', 'desc');
 
-        $files = Archivo::where('team_id', auth()->user()->current_team_id)
-            ->whereHas('factura', function ($query) use ($search, $month, $year) {
-                // Filter by month/year provided by Global Filter
-                if ($month && $year) {
-                     $query->whereMonth('fecha_emision', $month)
-                           ->whereYear('fecha_emision', $year);
-                }
-
-                if ($search) {
-                    $query->where(function ($q) use ($search) {
-                        $q->where('nombre', 'like', "%{$search}%")
-                            ->orWhere('rfc', 'like', "%{$search}%")
-                            ->orWhere('monto', 'like', "%{$search}%");
-                    });
-                }
-            })
-            ->with(['factura' => function ($query) {
-                $query->withCount('conciliaciones')
-                    ->with('conciliaciones.user');
+        $query = Archivo::query()
+            ->select('archivos.*')
+            ->join('facturas', 'archivos.id', '=', 'facturas.file_id_xml')
+            ->where('archivos.team_id', $request->user()->current_team_id)
+            ->with(['factura' => function ($q) {
+                $q->withCount('conciliaciones')
+                  ->with('conciliaciones.user');
             }])
-            ->latest()
-            ->get();
+            ->when($search, function ($query, $search) {
+                return $query->where(function ($q) use ($search) {
+                    $q->where('archivos.nombre_original', 'like', "%{$search}%")
+                        ->orWhere('archivos.hash', 'like', "%{$search}%")
+                        ->orWhere('facturas.nombre', 'like', "%{$search}%")
+                        ->orWhere('facturas.rfc', 'like', "%{$search}%")
+                        ->orWhere('facturas.monto', 'like', "%{$search}%");
+                });
+            })
+            ->when($date, function ($q) use ($date) {
+                return $q->whereDate('facturas.fecha_emision', $date);
+            })
+            ->when((! $date && $month), function ($q) use ($month) {
+                return $q->whereMonth('facturas.fecha_emision', $month);
+            })
+            ->when((! $date && $year), function ($q) use ($year) {
+                return $q->whereYear('facturas.fecha_emision', $year);
+            });
+
+        // Apply Sorting
+        if ($sort === 'total') {
+            $query->orderBy('facturas.monto', $direction);
+        } elseif ($sort === 'fecha_emision') {
+            $query->orderBy('facturas.fecha_emision', $direction);
+        } else {
+            // Default sort, usually by upload date (created_at of archivo)
+            // Use table alias to avoid ambiguity if sort is created_at
+            $sortField = $sort === 'created_at' ? 'archivos.created_at' : $sort;
+            $query->orderBy($sortField, $direction);
+        }
+
+        $files = $query->paginate(10)->withQueryString();
 
         return Inertia::render('Invoices/Index', [
             'files' => $files,
@@ -44,6 +64,9 @@ class FacturaController extends Controller
                 'search' => $search,
                 'month' => $month,
                 'year' => $year,
+                'date' => $date,
+                'sort' => $sort,
+                'direction' => $direction,
             ],
         ]);
     }
@@ -66,5 +89,30 @@ class FacturaController extends Controller
         $file->delete();
 
         return redirect()->route('invoices.index')->with('success', 'Factura eliminada correctamente.');
+    }
+
+    public function batchDestroy(Request $request)
+    {
+        $ids = $request->input('ids', []);
+
+        if (empty($ids)) {
+            return redirect()->back()->with('error', 'No se han seleccionado facturas.');
+        }
+
+        // Fetch files ensuring they belong to the current team
+        $files = Archivo::where('team_id', auth()->user()->current_team_id)
+            ->whereIn('id', $ids)
+            ->get();
+
+        $count = 0;
+        foreach ($files as $file) {
+            if (\Illuminate\Support\Facades\Storage::exists($file->path)) {
+                \Illuminate\Support\Facades\Storage::delete($file->path);
+            }
+            $file->delete();
+            $count++;
+        }
+
+        return redirect()->route('invoices.index')->with('success', "Se han eliminado {$count} facturas correctamente.");
     }
 }

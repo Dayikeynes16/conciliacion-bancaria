@@ -59,6 +59,7 @@ class FileUploadController extends Controller
                         $archivo = Archivo::create([
                             'team_id' => $teamId,
                             'path' => $path,
+                            'original_name' => $file->getClientOriginalName(),
                             'mime' => $file->getClientMimeType(),
                             'size' => $file->getSize(),
                             'estatus' => 'procesado',
@@ -138,6 +139,7 @@ class FileUploadController extends Controller
                         'team_id' => $teamId,
                         'banco_id' => $banco->id,
                         'path' => $path,
+                        'original_name' => $file->getClientOriginalName(),
                         'mime' => $file->getClientMimeType(),
                         'size' => $file->getSize(),
                         'checksum' => $checksum,

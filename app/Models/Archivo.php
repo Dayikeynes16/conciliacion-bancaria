@@ -9,7 +9,7 @@ class Archivo extends Model
     use \App\Models\Traits\HasCreator;
     use \App\Models\Traits\TeamOwned;
 
-    protected $fillable = ['user_id', 'team_id', 'banco_id', 'path', 'mime', 'size', 'checksum', 'estatus'];
+    protected $fillable = ['user_id', 'team_id', 'banco_id', 'path', 'original_name', 'mime', 'size', 'checksum', 'estatus'];
 
     public function banco()
     {

@@ -3,20 +3,10 @@ import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout.vue";
 import Modal from "@/Components/Modal.vue";
 import SecondaryButton from "@/Components/SecondaryButton.vue";
 import { Head, router, useForm } from "@inertiajs/vue3";
-import { ref } from "vue";
+import { ref, computed, watch } from "vue";
 import axios from "axios";
 
-defineProps<{
-    files: Array<{
-        id: number;
-        path: string;
-        created_at: string;
-        banco?: {
-            nombre: string;
-        };
-        movimientos_count: number;
-    }>;
-}>();
+
 
 const selectedFile = ref<any>(null);
 const fileMovements = ref<any[]>([]);
@@ -61,7 +51,7 @@ const viewDetails = async (file: any) => {
 
 // closeModal moved to bottom to handle both states
 
-import { computed } from "vue";
+
 
 const filteredMovements = computed(() => {
     if (activeTab.value === "all") return fileMovements.value;
@@ -82,14 +72,79 @@ const totalCargos = computed(() => {
 
 const confirmingFileDeletion = ref(false);
 const fileIdToDelete = ref<number | null>(null);
+const confirmingBatchDeletion = ref(false);
+const selectedIds = ref<number[]>([]);
 const form = useForm({});
+const batchForm = useForm({ ids: [] as number[] });
+
+// Date Filter Logic
+const props = defineProps<{
+    files: Array<{
+        id: number;
+        path: string;
+        original_name?: string;
+        created_at: string;
+        banco?: { nombre: string };
+        movimientos_count: number;
+    }>;
+    filters?: {
+        month?: string;
+        year?: string;
+        date?: string;
+    };
+}>();
+
+const dateFilter = ref(props.filters?.date || "");
+import { debounce } from "lodash";
+
+watch(
+    dateFilter,
+    debounce((value) => {
+        router.get(
+            route("movements.index"),
+            { date: value }, // Filter by exact date
+            { preserveState: true, replace: true }
+        );
+    }, 300)
+);
 
 import ConfirmationModal from "@/Components/ConfirmationModal.vue";
 import PrimaryButton from "@/Components/PrimaryButton.vue";
 
+const selectAll = computed({
+    get: () => props.files.length > 0 && selectedIds.value.length === props.files.length,
+    set: (val) => {
+        if (val) {
+            selectedIds.value = props.files.map((f) => f.id);
+        } else {
+            selectedIds.value = [];
+        }
+    },
+});
+
+const toggleSelectAll = () => {
+    selectAll.value = !selectAll.value;
+};
+
 const confirmDeleteFile = (file: { id: number }) => {
     fileIdToDelete.value = file.id;
     confirmingFileDeletion.value = true;
+};
+
+const confirmBatchDeletion = () => {
+    confirmingBatchDeletion.value = true;
+};
+
+const deleteBatch = () => {
+    batchForm.ids = selectedIds.value;
+    batchForm.post(route("movements.batch-destroy"), {
+        preserveScroll: true,
+        onSuccess: () => {
+            closeModal();
+            selectedIds.value = [];
+        },
+        onFinish: () => batchForm.reset(),
+    });
 };
 
 const deleteFileConfirmed = () => {
@@ -109,6 +164,7 @@ const closeModal = () => {
     selectedFile.value = null;
     fileMovements.value = [];
     confirmingFileDeletion.value = false;
+    confirmingBatchDeletion.value = false;
     fileIdToDelete.value = null;
     form.reset();
 };
@@ -133,10 +189,50 @@ const closeModal = () => {
                     class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg"
                 >
                     <div class="p-6 text-gray-900 dark:text-gray-100">
-                        <div class="flex justify-between items-center mb-6">
+                        <div class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
                             <h3 class="text-lg font-medium">
                                 Archivos de Movimientos Cargados
                             </h3>
+
+                            <div class="flex items-center gap-4">
+                                <!-- Batch Delete Button -->
+                                <Transition
+                                    enter-active-class="transition ease-out duration-200"
+                                    enter-from-class="opacity-0 scale-95"
+                                    enter-to-class="opacity-100 scale-100"
+                                    leave-active-class="transition ease-in duration-75"
+                                    leave-from-class="opacity-100 scale-100"
+                                    leave-to-class="opacity-0 scale-95"
+                                >
+                                    <button
+                                        v-if="selectedIds.length > 0"
+                                        @click="confirmBatchDeletion"
+                                        class="inline-flex items-center px-4 py-2 bg-red-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-red-500 active:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transition ease-in-out duration-150"
+                                    >
+                                        Eliminar ({{ selectedIds.length }})
+                                    </button>
+                                </Transition>
+
+                                <!-- Date Filter -->
+                                <div class="flex items-center gap-2">
+                                    <label for="date-filter" class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                        Filtrar por Fecha:
+                                    </label>
+                                    <input
+                                        id="date-filter"
+                                        type="date"
+                                        v-model="dateFilter"
+                                        class="border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm text-sm"
+                                    />
+                                    <button
+                                        v-if="dateFilter"
+                                        @click="dateFilter = ''"
+                                        class="text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+                                    >
+                                        Limpiar
+                                    </button>
+                                </div>
+                            </div>
                         </div>
 
                         <div
@@ -154,6 +250,15 @@ const closeModal = () => {
                                     class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400"
                                 >
                                     <tr>
+                                        <th scope="col" class="p-4 w-4">
+                                            <div class="flex items-center">
+                                                <input
+                                                    type="checkbox"
+                                                    v-model="selectAll"
+                                                    class="rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500 dark:border-gray-700 dark:bg-gray-900 dark:focus:ring-indigo-600 dark:focus:ring-offset-gray-800"
+                                                />
+                                            </div>
+                                        </th>
                                         <th scope="col" class="py-3 px-6">
                                             ID
                                         </th>
@@ -181,6 +286,16 @@ const closeModal = () => {
                                         class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"
                                         @click="viewDetails(file)"
                                     >
+                                        <td class="p-4 w-4" @click.stop>
+                                            <div class="flex items-center">
+                                                <input
+                                                    type="checkbox"
+                                                    :value="file.id"
+                                                    v-model="selectedIds"
+                                                    class="rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500 dark:border-gray-700 dark:bg-gray-900 dark:focus:ring-indigo-600 dark:focus:ring-offset-gray-800"
+                                                />
+                                            </div>
+                                        </td>
                                         <td class="py-4 px-6">{{ file.id }}</td>
                                         <td class="py-4 px-6">
                                             <span
@@ -194,9 +309,9 @@ const closeModal = () => {
                                         </td>
                                         <td
                                             class="py-4 px-6 truncate max-w-xs"
-                                            :title="file.path"
+                                            :title="file.original_name || file.path"
                                         >
-                                            {{ file.path.split("/").pop() }}
+                                            {{ file.original_name || file.path.split("/").pop() }}
                                         </td>
                                         <td class="py-4 px-6">
                                             <span
@@ -252,7 +367,7 @@ const closeModal = () => {
                             class="mt-1 text-sm text-gray-600 dark:text-gray-400"
                             v-if="selectedFile"
                         >
-                            Archivo: {{ selectedFile.path.split("/").pop() }}
+                            Archivo: {{ selectedFile.original_name || selectedFile.path.split("/").pop() }}
                         </p>
                     </div>
                     <div
@@ -462,6 +577,31 @@ const closeModal = () => {
                     @click="deleteFileConfirmed"
                 >
                     Eliminar
+                </PrimaryButton>
+            </template>
+        </ConfirmationModal>
+
+        <ConfirmationModal :show="confirmingBatchDeletion" @close="closeModal">
+            <template #title> Eliminar Archivos Seleccionados </template>
+
+            <template #content>
+                ¿Estás seguro de que deseas eliminar los
+                {{ selectedIds.length }} archivos seleccionados? Se eliminarán
+                todos los movimientos asociados permanentemente.
+            </template>
+
+            <template #footer>
+                <SecondaryButton @click="closeModal">
+                    Cancelar
+                </SecondaryButton>
+
+                <PrimaryButton
+                    class="ml-3 bg-red-600 hover:bg-red-500 focus:bg-red-700 active:bg-red-900 border-red-600 focus:ring-red-500"
+                    :class="{ 'opacity-25': batchForm.processing }"
+                    :disabled="batchForm.processing"
+                    @click="deleteBatch"
+                >
+                    Eliminar Todo
                 </PrimaryButton>
             </template>
         </ConfirmationModal>

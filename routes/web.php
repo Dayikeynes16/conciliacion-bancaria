@@ -46,11 +46,13 @@ Route::middleware('auth')->group(function () {
 
     // Movimientos Routes
     Route::get('/movements', [App\Http\Controllers\MovimientoController::class, 'index'])->name('movements.index');
+    Route::post('/movements/batch-destroy', [App\Http\Controllers\MovimientoController::class, 'batchDestroy'])->name('movements.batch-destroy');
     Route::get('/movements/{file}', [App\Http\Controllers\MovimientoController::class, 'show'])->name('movements.show');
     Route::delete('/movements/{file}', [App\Http\Controllers\MovimientoController::class, 'destroy'])->name('movements.destroy');
 
     // Facturas Routes
     Route::get('/invoices', [App\Http\Controllers\FacturaController::class, 'index'])->name('invoices.index');
+    Route::post('/invoices/batch-destroy', [App\Http\Controllers\FacturaController::class, 'batchDestroy'])->name('invoices.batch-destroy');
     Route::delete('/invoices/{file}', [App\Http\Controllers\FacturaController::class, 'destroy'])->name('invoices.destroy');
 
     // Settings Routes

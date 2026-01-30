@@ -15,7 +15,7 @@ trait TeamOwned
         // Automatically scope queries to the current team
         static::addGlobalScope('team', function (Builder $builder) {
             if (Auth::check() && Auth::user()->current_team_id) {
-                $builder->where('team_id', Auth::user()->current_team_id);
+                $builder->where($builder->getModel()->getTable().'.team_id', Auth::user()->current_team_id);
             }
         });
 

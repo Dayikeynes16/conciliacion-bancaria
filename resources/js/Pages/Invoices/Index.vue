@@ -1,49 +1,82 @@
 <script setup lang="ts">
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout.vue";
-import { Head, router } from "@inertiajs/vue3";
+import { Head, router, Link } from "@inertiajs/vue3";
 import { ref, watch } from "vue";
 import { debounce } from "lodash";
 
 const props = defineProps<{
-    files: Array<{
-        id: number;
-        path: string;
-        created_at: string;
-        factura?: {
-            uuid: string;
-            monto: number;
-            rfc: string;
-            nombre: string;
-            fecha_emision: string;
-            conciliaciones_count?: number;
-            conciliaciones?: Array<{
-                id: number;
-                user?: {
-                    name: string;
-                };
-            }>;
-        };
-    }>;
+    files: {
+        data: Array<{
+            id: number;
+            path: string;
+            created_at: string;
+            factura?: {
+                uuid: string;
+                monto: number;
+                rfc: string;
+                nombre: string;
+                fecha_emision: string;
+                conciliaciones_count?: number;
+                conciliaciones?: Array<{
+                    id: number;
+                    user?: {
+                        name: string;
+                    };
+                }>;
+            };
+        }>;
+        links: Array<{
+            url?: string;
+            label: string;
+            active: boolean;
+        }>;
+        current_page: number;
+        last_page: number;
+        from: number;
+        to: number;
+        total: number;
+    };
     filters?: {
         search?: string;
+        date?: string;
+        sort?: string;
+        direction?: string;
     };
 }>();
 
 const search = ref(props.filters?.search || "");
+const dateFilter = ref(props.filters?.date || "");
+const sortColumn = ref(props.filters?.sort || "created_at");
+const sortDirection = ref(props.filters?.direction || "desc");
 
-watch(
-    search,
-    debounce((value) => {
-        router.get(
-            route("invoices.index"),
-            { search: value },
-            {
-                preserveState: true,
-                replace: true,
-            },
-        );
-    }, 300),
-);
+const updateParams = debounce(() => {
+    router.get(
+        route("invoices.index"),
+        {
+            search: search.value,
+            date: dateFilter.value,
+            sort: sortColumn.value,
+            direction: sortDirection.value,
+        },
+        {
+            preserveState: true,
+            replace: true,
+        },
+    );
+}, 300);
+
+watch(search, updateParams);
+watch(dateFilter, updateParams);
+
+const sort = (column: string) => {
+    if (sortColumn.value === column) {
+        sortDirection.value = sortDirection.value === "asc" ? "desc" : "asc";
+    } else {
+        sortColumn.value = column;
+        sortDirection.value = "desc";
+    }
+    updateParams();
+};
 
 const formatDate = (date: string) => {
     return new Date(date).toLocaleDateString("es-MX", {
@@ -70,15 +103,41 @@ const formatCurrency = (amount: number) => {
 import ConfirmationModal from "@/Components/ConfirmationModal.vue";
 import PrimaryButton from "@/Components/PrimaryButton.vue";
 import SecondaryButton from "@/Components/SecondaryButton.vue";
+import Checkbox from "@/Components/Checkbox.vue";
 import { useForm } from "@inertiajs/vue3";
+import { computed } from "vue";
 
 const confirmingFileDeletion = ref(false);
 const fileIdToDelete = ref<number | null>(null);
+const confirmingBatchDeletion = ref(false);
+const selectedIds = ref<number[]>([]);
 const form = useForm({});
+const batchForm = useForm({
+    ids: [] as number[],
+});
+
+const selectAll = computed({
+    get: () => props.files.data.length > 0 && selectedIds.value.length === props.files.data.length,
+    set: (val) => {
+        if (val) {
+            selectedIds.value = props.files.data.map((f) => f.id);
+        } else {
+            selectedIds.value = [];
+        }
+    },
+});
+
+const toggleSelectAll = () => {
+    selectAll.value = !selectAll.value;
+};
 
 const confirmFileDeletion = (id: number) => {
     fileIdToDelete.value = id;
     confirmingFileDeletion.value = true;
+};
+
+const confirmBatchDeletion = () => {
+    confirmingBatchDeletion.value = true;
 };
 
 const deleteFile = () => {
@@ -92,8 +151,21 @@ const deleteFile = () => {
     });
 };
 
+const deleteBatch = () => {
+    batchForm.ids = selectedIds.value;
+    batchForm.post(route("invoices.batch-destroy"), {
+        preserveScroll: true,
+        onSuccess: () => {
+            closeModal();
+            selectedIds.value = [];
+        },
+        onFinish: () => batchForm.reset(),
+    });
+};
+
 const closeModal = () => {
     confirmingFileDeletion.value = false;
+    confirmingBatchDeletion.value = false;
     fileIdToDelete.value = null;
     form.reset();
 };
@@ -132,15 +204,15 @@ const closeModal = () => {
                                     Total:
                                     <span
                                         class="font-semibold text-gray-700 dark:text-gray-200"
-                                        >{{ files.length }} facturas</span
+                                        >{{ files.total }} facturas</span
                                     >
                                     <span class="mx-2">|</span>
-                                    Monto Total:
+                                    Monto Total (Página):
                                     <span
                                         class="font-semibold text-green-600 dark:text-green-400"
                                         >{{
                                             formatCurrency(
-                                                files.reduce(
+                                                files.data.reduce(
                                                     (sum, file) =>
                                                         sum +
                                                         Number(
@@ -155,9 +227,27 @@ const closeModal = () => {
                                 </p>
                             </div>
 
-                            <!-- Search Field -->
-                            <div class="w-full md:w-1/3">
-                                <div class="relative">
+                            <!-- Actions -->
+                            <div class="flex items-center gap-4 w-full md:w-auto">
+                                <Transition
+                                    enter-active-class="transition ease-out duration-200"
+                                    enter-from-class="opacity-0 scale-95"
+                                    enter-to-class="opacity-100 scale-100"
+                                    leave-active-class="transition ease-in duration-75"
+                                    leave-from-class="opacity-100 scale-100"
+                                    leave-to-class="opacity-0 scale-95"
+                                >
+                                    <button
+                                        v-if="selectedIds.length > 0"
+                                        @click="confirmBatchDeletion"
+                                        class="inline-flex items-center px-4 py-2 bg-red-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-red-500 active:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transition ease-in-out duration-150"
+                                    >
+                                        Eliminar ({{ selectedIds.length }})
+                                    </button>
+                                </Transition>
+
+                                <!-- Search Field -->
+                                <div class="relative w-full md:w-64">
                                     <div
                                         class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none"
                                     >
@@ -184,11 +274,18 @@ const closeModal = () => {
                                         placeholder="Buscar por nombre, RFC o monto..."
                                     />
                                 </div>
+                                <div class="w-full md:w-auto">
+                                    <input
+                                        type="date"
+                                        v-model="dateFilter"
+                                        class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+                                    />
+                                </div>
                             </div>
                         </div>
 
                         <div
-                            v-if="files.length === 0"
+                            v-if="files.data.length === 0"
                             class="text-center py-8 text-gray-500"
                         >
                             No se han cargado facturas aún.
@@ -202,6 +299,15 @@ const closeModal = () => {
                                     class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400"
                                 >
                                     <tr>
+                                        <th scope="col" class="p-4 w-4">
+                                            <div class="flex items-center">
+                                                <input
+                                                    type="checkbox"
+                                                    v-model="selectAll"
+                                                    class="rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500 dark:border-gray-700 dark:bg-gray-900 dark:focus:ring-indigo-600 dark:focus:ring-offset-gray-800"
+                                                />
+                                            </div>
+                                        </th>
                                         <th scope="col" class="py-3 px-6">
                                             ID
                                         </th>
@@ -211,12 +317,23 @@ const closeModal = () => {
                                         <th scope="col" class="py-3 px-6">
                                             Nombre
                                         </th>
-                                        <th scope="col" class="py-3 px-6">
-                                            Monto
+                                        <th scope="col" class="px-6 py-3 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700" @click="sort('total')">
+                                            <div class="flex items-center gap-1">
+                                                Total
+                                                <span v-if="sortColumn === 'total'">
+                                                    {{ sortDirection === 'asc' ? '↑' : '↓' }}
+                                                </span>
+                                            </div>
                                         </th>
-                                        <th scope="col" class="py-3 px-6">
-                                            Fecha Emisión
+                                        <th scope="col" class="px-6 py-3 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700" @click="sort('fecha_emision')">
+                                            <div class="flex items-center gap-1">
+                                                Fecha Emisión
+                                                <span v-if="sortColumn === 'fecha_emision'">
+                                                    {{ sortDirection === 'asc' ? '↑' : '↓' }}
+                                                </span>
+                                            </div>
                                         </th>
+
                                         <th scope="col" class="py-3 px-6">
                                             Estado
                                         </th>
@@ -231,10 +348,20 @@ const closeModal = () => {
                                 </thead>
                                 <tbody>
                                     <tr
-                                        v-for="file in files"
+                                        v-for="file in files.data"
                                         :key="file.id"
-                                        class="bg-white border-b dark:bg-gray-800 dark:border-gray-700"
+                                        class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600"
                                     >
+                                        <td class="p-4 w-4">
+                                            <div class="flex items-center">
+                                                <input
+                                                    type="checkbox"
+                                                    :value="file.id"
+                                                    v-model="selectedIds"
+                                                    class="rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500 dark:border-gray-700 dark:bg-gray-900 dark:focus:ring-indigo-600 dark:focus:ring-offset-gray-800"
+                                                />
+                                            </div>
+                                        </td>
                                         <td class="py-4 px-6">{{ file.id }}</td>
                                         <td class="py-4 px-6">
                                             {{ file.factura?.rfc || "N/A" }}
@@ -299,6 +426,25 @@ const closeModal = () => {
                                 </tbody>
                             </table>
                         </div>
+                        <!-- Pagination -->
+                        <div class="mt-4" v-if="files.links.length > 3">
+                            <div class="flex flex-wrap -mb-1">
+                                <template v-for="(link, key) in files.links" :key="key">
+                                    <div
+                                        v-if="link.url === null"
+                                        class="mr-1 mb-1 px-4 py-3 text-sm leading-4 text-gray-400 border rounded"
+                                        v-html="link.label"
+                                    />
+                                    <Link
+                                        v-else
+                                        class="mr-1 mb-1 px-4 py-3 text-sm leading-4 border rounded hover:bg-white focus:border-indigo-500 focus:text-indigo-500 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700"
+                                        :class="{ 'bg-blue-700 text-white dark:bg-blue-600': link.active }"
+                                        :href="link.url"
+                                        v-html="link.label"
+                                    />
+                                </template>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -324,6 +470,31 @@ const closeModal = () => {
                     @click="deleteFile"
                 >
                     Eliminar
+                </PrimaryButton>
+            </template>
+        </ConfirmationModal>
+
+        <ConfirmationModal :show="confirmingBatchDeletion" @close="closeModal">
+            <template #title> Eliminar Facturas Seleccionadas </template>
+
+            <template #content>
+                ¿Estás seguro de que deseas eliminar las
+                {{ selectedIds.length }} facturas seleccionadas? Esta acción
+                no se puede deshacer.
+            </template>
+
+            <template #footer>
+                <SecondaryButton @click="closeModal">
+                    Cancelar
+                </SecondaryButton>
+
+                <PrimaryButton
+                    class="ml-3 bg-red-600 hover:bg-red-500 focus:bg-red-700 active:bg-red-900 border-red-600 focus:ring-red-500"
+                    :class="{ 'opacity-25': batchForm.processing }"
+                    :disabled="batchForm.processing"
+                    @click="deleteBatch"
+                >
+                    Eliminar Todo
                 </PrimaryButton>
             </template>
         </ConfirmationModal>

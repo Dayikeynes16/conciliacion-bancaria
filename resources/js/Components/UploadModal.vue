@@ -54,12 +54,28 @@ const resetUploadState = () => {
     uploadState.progressPercentage = 0;
 };
 
+const isDraggingXml = ref(false);
+const isDraggingXlsx = ref(false);
+
 const handleXmlChange = (e) => {
     form.files = Array.from(e.target.files);
 };
 
+const handleXmlDrop = (e) => {
+    isDraggingXml.value = false;
+    form.files = Array.from(e.dataTransfer.files);
+};
+
 const handleXlsxChange = (e) => {
     form.statement = e.target.files[0] || null;
+};
+
+const handleXlsxDrop = (e) => {
+    isDraggingXlsx.value = false;
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+        form.statement = files[0];
+    }
 };
 
 const processQueue = async () => {
@@ -222,7 +238,15 @@ const submit = () => {
                     <div class="flex items-center justify-center w-full">
                         <label
                             for="xml-dropzone"
-                            class="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 dark:hover:bg-bray-800 dark:bg-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:hover:border-gray-500 dark:hover:bg-gray-600 transision duration-150"
+                            class="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer transition duration-150"
+                            :class="[
+                                isDraggingXml 
+                                    ? 'border-blue-500 bg-blue-50 dark:bg-gray-600 dark:border-blue-400' 
+                                    : 'border-gray-300 bg-gray-50 hover:bg-gray-100 dark:bg-gray-700 dark:hover:bg-gray-600 dark:border-gray-600 dark:hover:border-gray-500'
+                            ]"
+                            @dragover.prevent="isDraggingXml = true"
+                            @dragleave.prevent="isDraggingXml = false"
+                            @drop.prevent="handleXmlDrop"
                         >
                             <div
                                 class="flex flex-col items-center justify-center pt-5 pb-6 text-center px-4"
@@ -322,7 +346,15 @@ const submit = () => {
                     <div class="flex items-center justify-center w-full">
                         <label
                             for="xlsx-dropzone"
-                            class="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 dark:hover:bg-bray-800 dark:bg-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:hover:border-gray-500 dark:hover:bg-gray-600 transition duration-150"
+                            class="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer transition duration-150"
+                            :class="[
+                                isDraggingXlsx 
+                                    ? 'border-blue-500 bg-blue-50 dark:bg-gray-600 dark:border-blue-400' 
+                                    : 'border-gray-300 bg-gray-50 hover:bg-gray-100 dark:bg-gray-700 dark:hover:bg-gray-600 dark:border-gray-600 dark:hover:border-gray-500'
+                            ]"
+                            @dragover.prevent="isDraggingXlsx = true"
+                            @dragleave.prevent="isDraggingXlsx = false"
+                            @drop.prevent="handleXlsxDrop"
                         >
                             <div
                                 class="flex flex-col items-center justify-center pt-5 pb-6 text-center px-4"
@@ -442,7 +474,7 @@ const submit = () => {
                     "
                     class="p-3 bg-green-100 text-green-800 rounded-md text-sm mt-4"
                 >
-                    Todo listo. Redirigiendo...
+                    Carga completada.
                 </div>
 
                 <div class="mt-6 flex justify-end">
