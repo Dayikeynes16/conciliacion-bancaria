@@ -7,6 +7,7 @@ import TextInput from '@/Components/TextInput.vue';
 import InputError from '@/Components/InputError.vue';
 import InputLabel from '@/Components/InputLabel.vue';
 import { ref } from 'vue';
+import { trans } from 'laravel-vue-i18n';
 
 import ConfirmationModal from '@/Components/ConfirmationModal.vue';
 import DangerButton from '@/Components/DangerButton.vue';
@@ -16,6 +17,7 @@ const props = defineProps<{
         id: number;
         user_id: number;
         name: string;
+        rfc: string | null;
     };
     members: Array<{
         id: number;
@@ -47,6 +49,7 @@ const inviteUser = () => {
 
 const updateForm = useForm({
     name: props.team.name,
+    rfc: props.team.rfc || '',
 });
 
 const updateTeamName = () => {
@@ -58,7 +61,7 @@ const updateTeamName = () => {
 const copyLink = (token: string) => {
     const link = route('team-invitations.accept', token);
     navigator.clipboard.writeText(link);
-    alert('Link copiado al portapapeles: ' + link);
+    alert(trans('Link copiado al portapapeles: ') + link);
 };
 
 const userBeingRemoved = ref<number | null>(null);
@@ -89,7 +92,7 @@ const removeMember = () => {
 };
 
 const cancelInvitation = (id: number) => {
-    if (confirm('¿Estás seguro de que deseas cancelar esta invitación?')) {
+    if (confirm(trans('¿Estás seguro de que deseas cancelar esta invitación?'))) {
         router.delete(route('team-invitations.destroy', id), {
             preserveScroll: true,
         });
@@ -98,12 +101,12 @@ const cancelInvitation = (id: number) => {
 </script>
 
 <template>
-    <Head title="Configuración de Equipo" />
+    <Head :title="$t('Configuración de Equipo')" />
 
     <AuthenticatedLayout>
         <template #header>
             <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
-                Configuración del Equipo: {{ team.name }}
+                {{ $t('Configuración del Equipo') }}: {{ team.name }}
             </h2>
         </template>
 
@@ -114,15 +117,15 @@ const cancelInvitation = (id: number) => {
                 <div class="p-4 sm:p-8 bg-white dark:bg-gray-800 shadow sm:rounded-lg" v-if="team.user_id === $page.props.auth.user.id">
                     <section>
                         <header>
-                            <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100">Nombre del Equipo</h2>
+                            <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100">{{ $t('Nombre del Equipo') }}</h2>
                             <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                                Actualiza el nombre de tu equipo o empresa.
+                                {{ $t('Actualiza el nombre de tu equipo o empresa.') }}
                             </p>
                         </header>
 
                         <form @submit.prevent="updateTeamName" class="mt-6 flex items-start gap-4">
                             <div class="flex-1 max-w-md">
-                                <InputLabel for="team_name" value="Nombre" class="sr-only" />
+                                <InputLabel for="team_name" :value="$t('Nombre')" class="sr-only" />
                                 <TextInput
                                     id="team_name"
                                     type="text"
@@ -132,7 +135,20 @@ const cancelInvitation = (id: number) => {
                                 />
                                 <InputError class="mt-2" :message="updateForm.errors.name" />
                             </div>
-                            <PrimaryButton :disabled="updateForm.processing" v-if="updateForm.isDirty">Guardar</PrimaryButton>
+                            
+                            <div class="flex-1 max-w-md">
+                                <InputLabel for="team_rfc" :value="$t('RFC')" class="sr-only" />
+                                <TextInput
+                                    id="team_rfc"
+                                    type="text"
+                                    class="block w-full"
+                                    v-model="updateForm.rfc"
+                                    :placeholder="$t('RFC (Opcional)')"
+                                    maxlength="13"
+                                />
+                                <InputError class="mt-2" :message="updateForm.errors.rfc" />
+                            </div>
+                            <PrimaryButton :disabled="updateForm.processing" v-if="updateForm.isDirty">{{ $t('Guardar') }}</PrimaryButton>
                         </form>
                     </section>
                 </div>
@@ -141,21 +157,21 @@ const cancelInvitation = (id: number) => {
                 <div class="p-4 sm:p-8 bg-white dark:bg-gray-800 shadow sm:rounded-lg">
                     <section>
                         <header>
-                            <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100">Invitar Miembro</h2>
+                            <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100">{{ $t('Invitar Miembro') }}</h2>
                             <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                                Agrega un nuevo miembro a tu equipo para compartir el acceso.
+                                {{ $t('Agrega un nuevo miembro a tu equipo para compartir el acceso.') }}
                             </p>
                         </header>
 
                         <div v-if="team.user_id !== $page.props.auth.user.id" class="mt-4 bg-yellow-50 dark:bg-yellow-900/20 p-4 rounded-md">
                             <p class="text-sm text-yellow-800 dark:text-yellow-200">
-                                Solo el propietario del equipo puede invitar a nuevos miembros.
+                                {{ $t('Solo el propietario del equipo puede invitar a nuevos miembros.') }}
                             </p>
                         </div>
 
                         <form @submit.prevent="inviteUser" class="mt-6 flex items-start gap-4" :class="{ 'opacity-50': team.user_id !== $page.props.auth.user.id }">
                             <div class="flex-1 max-w-md">
-                                <InputLabel for="email" value="Correo Electrónico" class="sr-only" />
+                                <InputLabel for="email" :value="$t('Correo Electrónico')" class="sr-only" />
                                 <TextInput
                                     id="email"
                                     type="email"
@@ -167,7 +183,7 @@ const cancelInvitation = (id: number) => {
                                 />
                                 <InputError class="mt-2" :message="form.errors.email" />
                             </div>
-                            <PrimaryButton :disabled="form.processing || team.user_id !== $page.props.auth.user.id">Invitar</PrimaryButton>
+                            <PrimaryButton :disabled="form.processing || team.user_id !== $page.props.auth.user.id">{{ $t('Invitar') }}</PrimaryButton>
                         </form>
                     </section>
                 </div>
@@ -176,12 +192,12 @@ const cancelInvitation = (id: number) => {
                 <div class="p-4 sm:p-8 bg-white dark:bg-gray-800 shadow sm:rounded-lg" v-if="invitations.length > 0">
                     <section>
                         <header>
-                            <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100">Invitaciones Pendientes</h2>
+                            <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100">{{ $t('Invitaciones Pendientes') }}</h2>
                         </header>
                         
                         <div class="mt-6 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-md p-4">
                             <p class="text-sm text-yellow-800 dark:text-yellow-200">
-                                Comparte el enlace de invitación con los usuarios para que se unan.
+                                {{ $t('Comparte el enlace de invitación con los usuarios para que se unan.') }}
                             </p>
                         </div>
 
@@ -189,10 +205,10 @@ const cancelInvitation = (id: number) => {
                             <table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
                                 <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
                                     <tr>
-                                        <th class="px-6 py-3">Correo</th>
-                                        <th class="px-6 py-3">Rol</th>
-                                        <th class="px-6 py-3">Enviado</th>
-                                        <th class="px-6 py-3">Acciones</th>
+                                        <th class="px-6 py-3">{{ $t('Correo') }}</th>
+                                        <th class="px-6 py-3">{{ $t('Rol') }}</th>
+                                        <th class="px-6 py-3">{{ $t('Enviado') }}</th>
+                                        <th class="px-6 py-3">{{ $t('Acciones') }}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -201,8 +217,8 @@ const cancelInvitation = (id: number) => {
                                         <td class="px-6 py-4">{{ invite.role }}</td>
                                         <td class="px-6 py-4">{{ new Date(invite.created_at).toLocaleDateString() }}</td>
                                         <td class="px-6 py-4">
-                                            <button @click="copyLink(invite.token)" class="text-blue-600 dark:text-blue-400 hover:underline mr-4">Copiar Enlace</button>
-                                            <button @click="cancelInvitation(invite.id)" class="text-red-600 dark:text-red-400 hover:underline">Eliminar</button>
+                                            <button @click="copyLink(invite.token)" class="text-blue-600 dark:text-blue-400 hover:underline mr-4">{{ $t('Copiar Enlace') }}</button>
+                                            <button v-if="team.user_id === $page.props.auth.user.id" @click="cancelInvitation(invite.id)" class="text-red-600 dark:text-red-400 hover:underline">{{ $t('Eliminar') }}</button>
                                         </td>
                                     </tr>
                                 </tbody>
@@ -215,17 +231,17 @@ const cancelInvitation = (id: number) => {
                 <div class="p-4 sm:p-8 bg-white dark:bg-gray-800 shadow sm:rounded-lg">
                     <section>
                         <header>
-                            <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100">Miembros del Equipo</h2>
+                            <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100">{{ $t('Miembros del Equipo') }}</h2>
                         </header>
 
                         <div class="mt-6 overflow-x-auto">
                             <table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
                                 <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
                                     <tr>
-                                        <th class="px-6 py-3">Nombre</th>
-                                        <th class="px-6 py-3">Correo</th>
-                                        <th class="px-6 py-3">Rol</th>
-                                        <th class="px-6 py-3">Acciones</th>
+                                        <th class="px-6 py-3">{{ $t('Nombre') }}</th>
+                                        <th class="px-6 py-3">{{ $t('Correo') }}</th>
+                                        <th class="px-6 py-3">{{ $t('Rol') }}</th>
+                                        <th class="px-6 py-3">{{ $t('Acciones') }}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -238,15 +254,15 @@ const cancelInvitation = (id: number) => {
                                                 v-if="user.pivot.role !== 'owner' && team.user_id === $page.props.auth.user.id" 
                                                 @click="confirmUserRemoval(user.id)" 
                                                 class="text-red-600 dark:text-red-400 hover:underline">
-                                                Eliminar
+                                                {{ $t('Eliminar') }}
                                             </button>
                                             <button 
                                                 v-if="user.id === $page.props.auth.user.id && user.pivot.role !== 'owner'" 
                                                 @click="confirmUserLeavning(user.id)" 
                                                 class="text-red-600 dark:text-red-400 hover:underline">
-                                                Salir
+                                                {{ $t('Salir') }}
                                             </button>
-                                            <span v-if="user.pivot.role === 'owner'" class="text-gray-400 italic">Propietario</span>
+                                            <span v-if="user.pivot.role === 'owner'" class="text-gray-400 italic">{{ $t('Propietario') }}</span>
                                         </td>
                                     </tr>
                                 </tbody>
@@ -259,15 +275,15 @@ const cancelInvitation = (id: number) => {
                  <div class="p-4 sm:p-8 bg-white dark:bg-gray-800 shadow sm:rounded-lg border-l-4 border-red-500" v-if="team.user_id !== $page.props.auth.user.id">
                     <section>
                         <header>
-                            <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100">Salir del Equipo</h2>
+                            <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100">{{ $t('Salir del Equipo') }}</h2>
                             <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                                Renuncia a tu acceso a este equipo.
+                                {{ $t('Renuncia a tu acceso a este equipo.') }}
                             </p>
                         </header>
 
                         <div class="mt-6">
                             <DangerButton @click="confirmUserLeavning($page.props.auth.user.id)">
-                                Salir del Equipo
+                                {{ $t('Salir del Equipo') }}
                             </DangerButton>
                         </div>
                     </section>
@@ -278,21 +294,21 @@ const cancelInvitation = (id: number) => {
         <!-- Confirmation Modal -->
         <ConfirmationModal :show="userBeingRemoved !== null" @close="userBeingRemoved = null">
             <template #title>
-                {{ userLeavingElement ? 'Salir del Equipo' : 'Eliminar Miembro del Equipo' }}
+                {{ userLeavingElement ? $t('Salir del Equipo') : $t('Eliminar Miembro del Equipo') }}
             </template>
 
             <template #content>
                 <span v-if="userLeavingElement">
-                    ¿Estás seguro de que deseas salir de este equipo? Perderás acceso a todos los recursos.
+                    {{ $t('¿Estás seguro de que deseas salir de este equipo? Perderás acceso a todos los recursos.') }}
                 </span>
                 <span v-else>
-                    ¿Estás seguro de que deseas eliminar a este usuario del equipo? Esta acción no se puede deshacer.
+                    {{ $t('¿Estás seguro de que deseas eliminar a este usuario del equipo? Esta acción no se puede deshacer.') }}
                 </span>
             </template>
 
             <template #footer>
                 <SecondaryButton @click="userBeingRemoved = null">
-                    Cancelar
+                    {{ $t('Cancelar') }}
                 </SecondaryButton>
 
                 <DangerButton
@@ -301,7 +317,7 @@ const cancelInvitation = (id: number) => {
                     :class="{ 'opacity-25': removalForm.processing }"
                     :disabled="removalForm.processing"
                 >
-                    {{ userLeavingElement ? 'Salir' : 'Eliminar' }}
+                    {{ userLeavingElement ? $t('Salir') : $t('Eliminar') }}
                 </DangerButton>
             </template>
         </ConfirmationModal>

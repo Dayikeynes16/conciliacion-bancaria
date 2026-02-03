@@ -12,12 +12,18 @@ class StatementParserFactory
      *
      * @throws Exception
      */
-    public static function make(string $bankCode): StatementParser
+    public static function make(string $identifier): StatementParser
     {
-        return match (strtoupper($bankCode)) {
-            'BBVA' => app(BbvaParser::class),
-            // Add other banks here, e.g. 'BANAMEX' => app(BanamexParser::class),
-            default => throw new Exception("No parser found for bank code: {$bankCode}"),
-        };
+
+
+        // Check for Dynamic Format by ID (assuming identifier is the ID)
+        if (is_numeric($identifier)) {
+            $format = \App\Models\BankFormat::find($identifier);
+            if ($format) {
+                return new DynamicStatementParser($format);
+            }
+        }
+
+        throw new Exception("No parser found for identifier: {$identifier}");
     }
 }

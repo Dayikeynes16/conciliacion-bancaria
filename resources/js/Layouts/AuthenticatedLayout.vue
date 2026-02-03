@@ -4,6 +4,7 @@ import ApplicationLogo from "@/Components/ApplicationLogo.vue";
 import Dropdown from "@/Components/Dropdown.vue";
 import DropdownLink from "@/Components/DropdownLink.vue";
 import SidebarLink from "@/Components/SidebarLink.vue";
+import LanguageSwitcher from "@/Components/LanguageSwitcher.vue";
 import { Link, router } from "@inertiajs/vue3";
 
 const showingNavigationDropdown = ref(false);
@@ -65,15 +66,46 @@ if (typeof window !== 'undefined') {
                     :href="route('dashboard')"
                     class="flex items-center space-x-2"
                 >
-                    <ApplicationLogo class="w-8 h-8" />
-                    <span class="text-xl font-bold tracking-wide"
-                        >Conciliación</span
-                    >
+                    <ApplicationLogo class="h-10 w-auto" />
+
                 </Link>
             </div>
 
             <!-- Navigation Links -->
             <nav class="mt-5 px-2 space-y-1">
+                
+                <!-- Period Selector (Filters) -->
+                <div class="mb-6 px-2">
+                    <div class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                        {{ $t('Periodo Contable') }}
+                    </div>
+                    <div class="bg-gray-800 rounded-lg p-2 border border-gray-700 shadow-sm">
+                        <div class="grid grid-cols-2 gap-2">
+                            <div class="relative">
+                                <select 
+                                    :value="$page.props.filters.month"
+                                    @change="updateDateFilter('month', ($event.target as HTMLSelectElement).value)"
+                                    class="block w-full text-xs bg-gray-900 border-none text-gray-300 rounded focus:ring-indigo-500 py-1.5 pl-2 pr-6 cursor-pointer appearance-none"
+                                >
+                                    <option v-for="m in 12" :key="m" :value="m">
+                                        {{ new Date(0, m - 1).toLocaleString('es-MX', { month: 'short' }).toUpperCase() }}
+                                    </option>
+                                </select>
+                            </div>
+                            <div class="relative">
+                                <select 
+                                    :value="$page.props.filters.year"
+                                    @change="updateDateFilter('year', ($event.target as HTMLSelectElement).value)"
+                                    class="block w-full text-xs bg-gray-900 border-none text-white font-bold rounded focus:ring-indigo-500 py-1.5 pl-2 pr-6 cursor-pointer appearance-none"
+                                >
+                                    <option v-for="y in $page.props.available_years" :key="y" :value="y">
+                                        {{ y }}
+                                    </option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
                 <SidebarLink
                     :href="route('dashboard')"
                     :active="route().current('dashboard')"
@@ -93,7 +125,7 @@ if (typeof window !== 'undefined') {
                             ></path>
                         </svg>
                     </template>
-                    Inicio
+                    {{ $t('Inicio') }}
                 </SidebarLink>
 
                 <!-- Placeholder for future links -->
@@ -116,7 +148,7 @@ if (typeof window !== 'undefined') {
                             ></path>
                         </svg>
                     </template>
-                    Mesa de Trabajo
+                    {{ $t('Mesa de Trabajo') }}
                 </SidebarLink>
 
                 <SidebarLink
@@ -138,7 +170,7 @@ if (typeof window !== 'undefined') {
                             ></path>
                         </svg>
                     </template>
-                    Historial
+                    {{ $t('Historial') }}
                 </SidebarLink>
 
                 <SidebarLink
@@ -160,7 +192,7 @@ if (typeof window !== 'undefined') {
                             ></path>
                         </svg>
                     </template>
-                    Reporte Estatus
+                    {{ $t('Reporte Estatus') }}
                 </SidebarLink>
 
                 <SidebarLink
@@ -182,7 +214,7 @@ if (typeof window !== 'undefined') {
                             ></path>
                         </svg>
                     </template>
-                    Movimientos
+                    {{ $t('Movimientos') }}
                 </SidebarLink>
 
                 <SidebarLink
@@ -204,7 +236,7 @@ if (typeof window !== 'undefined') {
                             ></path>
                         </svg>
                     </template>
-                    Facturas
+                    {{ $t('Facturas') }}
                 </SidebarLink>
 
                 <!-- Settings -->
@@ -214,9 +246,21 @@ if (typeof window !== 'undefined') {
                     <div
                         class="px-2 mb-2 text-xs font-semibold text-gray-500 uppercase tracking-wider"
                     >
-                        Configuración
+                        {{ $t('Configuración') }}
                     </div>
                     <SidebarLink
+                        :href="route('bank-formats.index')"
+                        :active="route().current('bank-formats.*')"
+                    >
+                        <template #icon>
+                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                            </svg>
+                        </template>
+                        {{ $t('Formatos Bancarios') }}
+                    </SidebarLink>
+                    <SidebarLink
+                        v-if="$page.props.auth.user.current_team && $page.props.auth.user.current_team.user_id === $page.props.auth.user.id"
                         :href="route('settings.tolerance')"
                         :active="route().current('settings.tolerance')"
                     >
@@ -241,31 +285,108 @@ if (typeof window !== 'undefined') {
                                 ></path>
                             </svg>
                         </template>
-                        Tolerancia
+                        {{ $t('Tolerancia') }}
                     </SidebarLink>
                 </div>
             </nav>
 
-            <!-- User Profile (Bottom Sidebar) -->
-            <div class="absolute bottom-0 w-full border-t border-gray-800 p-4">
-                <div class="flex items-center">
-                    <div
-                        class="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center text-sm font-bold"
-                    >
-                        {{ $page.props.auth.user.name.charAt(0) }}
-                    </div>
-                    <div class="ml-3">
-                        <p class="text-sm font-medium text-white">
-                            {{ $page.props.auth.user.name }}
-                        </p>
-                        <Link
-                            :href="route('logout')"
-                            method="post"
-                            as="button"
-                            class="text-xs text-gray-400 hover:text-white"
-                            >Cerrar Sesión</Link
+            <!-- User Area (Bottom Sidebar) -->
+            <div class="absolute bottom-0 w-full border-t border-gray-800 p-4 bg-gray-900">
+                <div class="flex flex-col space-y-4">
+                    <!-- Controls -->
+                    <div class="flex items-center justify-between">
+                        <!-- Dark Mode Toggle -->
+                        <button 
+                            @click="toggleDarkMode"
+                            class="p-2 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-gray-800"
+                            title="Toggle Dark Mode"
                         >
+                            <svg v-if="isDark" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path>
+                            </svg>
+                            <svg v-else class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path>
+                            </svg>
+                        </button>
+
+                        <!-- Language Switcher -->
+                        <LanguageSwitcher />
+
+                        <!-- Team Switcher -->
+                        <Dropdown
+                            align="right"
+                            direction="up"
+                            width="60"
+                            v-if="$page.props.auth.user.current_team"
+                        >
+                            <template #trigger>
+                                <button type="button" class="flex items-center text-xs font-medium text-gray-400 hover:text-white transition-colors">
+                                    <span class="truncate max-w-[100px]">{{ $page.props.auth.user.current_team.name }}</span>
+                                    <svg class="ml-1 h-3 w-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fill-rule="evenodd" d="M10 3a1 1 0 01.707.293l3 3a1 1 0 01-1.414 1.414L10 5.414 7.707 7.707a1 1 0 01-1.414-1.414l3-3A1 1 0 0110 3zm-3.707 9.293a1 1 0 011.414 0L10 14.586l2.293-2.293a1 1 0 011.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd" />
+                                    </svg>
+                                </button>
+                            </template>
+
+                            <template #content>
+                                <div class="w-60">
+                                    <div class="block px-4 py-2 text-xs text-gray-400">
+                                        {{ $t('Administrar Equipo') }}
+                                    </div>
+                                    <DropdownLink :href="route('teams.show')">
+                                        {{ $t('Configuración del Equipo') }}
+                                    </DropdownLink>
+                                    <DropdownLink :href="route('teams.create')">
+                                        {{ $t('+ Crear Nuevo Equipo') }}
+                                    </DropdownLink>
+                                    <div class="border-t border-gray-200 dark:border-gray-600"></div>
+                                    <div class="block px-4 py-2 text-xs text-gray-400">
+                                        {{ $t('Cambiar Equipo') }}
+                                    </div>
+                                    <div v-for="team in $page.props.auth.user.all_teams" :key="team.id">
+                                        <form @submit.prevent="router.put(route('current-team.update'), { team_id: team.id })">
+                                            <DropdownLink as="button">
+                                                <div class="flex items-center">
+                                                    <svg v-if="team.id == $page.props.auth.user.current_team_id" class="mr-2 h-5 w-5 text-green-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                    </svg>
+                                                    <div class="truncate">{{ team.name }}</div>
+                                                </div>
+                                            </DropdownLink>
+                                        </form>
+                                    </div>
+                                </div>
+                            </template>
+                        </Dropdown>
                     </div>
+
+                    <!-- User Profile Dropdown -->
+                    <Dropdown align="right" direction="up" width="48">
+                        <template #trigger>
+                            <button class="flex items-center w-full group focus:outline-none">
+                                <div class="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center text-sm font-bold text-white shadow-sm group-hover:ring-2 group-hover:ring-indigo-400 transition-all">
+                                    {{ $page.props.auth.user.name.charAt(0) }}
+                                </div>
+                                <div class="ml-3 text-left">
+                                    <p class="text-sm font-medium text-white group-hover:text-indigo-300 transition-colors">
+                                        {{ $page.props.auth.user.name }}
+                                    </p>
+                                    <p class="text-xs text-gray-500 group-hover:text-gray-400">
+                                        {{ $t('Ver Perfil') }}
+                                    </p>
+                                </div>
+                            </button>
+                        </template>
+
+                        <template #content>
+                            <DropdownLink :href="route('profile.edit')">
+                                {{ $t('Perfil') }}
+                            </DropdownLink>
+                            <DropdownLink :href="route('logout')" method="post" as="button">
+                                {{ $t('Cerrar Sesión') }}
+                            </DropdownLink>
+                        </template>
+                    </Dropdown>
                 </div>
             </div>
         </aside>
@@ -434,185 +555,9 @@ if (typeof window !== 'undefined') {
                     </div>
                 </div>
 
-                <div class="flex items-center space-x-4">
-                    <!-- Global Date Filter -->
-                    <div class="flex items-center space-x-2 bg-gray-50 dark:bg-gray-700 p-1.5 rounded-lg border border-gray-200 dark:border-gray-600">
-                        <select 
-                            :value="$page.props.filters.month"
-                            @change="updateDateFilter('month', ($event.target as HTMLSelectElement).value)"
-                            class="text-sm border-none bg-transparent focus:ring-0 text-gray-700 dark:text-gray-300 font-medium py-1 pr-8 pl-2 cursor-pointer"
-                        >
-                            <option v-for="m in 12" :key="m" :value="m">
-                                {{ new Date(0, m - 1).toLocaleString('es-MX', { month: 'long' }).charAt(0).toUpperCase() + new Date(0, m - 1).toLocaleString('es-MX', { month: 'long' }).slice(1) }}
-                            </option>
-                        </select>
-                        <select 
-                            :value="$page.props.filters.year"
-                            @change="updateDateFilter('year', ($event.target as HTMLSelectElement).value)"
-                            class="text-sm border-none bg-transparent focus:ring-0 text-gray-700 dark:text-gray-300 font-bold py-1 pr-8 pl-2 cursor-pointer"
-                        >
-                            <option v-for="y in $page.props.available_years" :key="y" :value="y">
-                                {{ y }}
-                            </option>
-                        </select>
-                    </div>
-                    
-                    <!-- Dark Mode Toggle -->
-                    <button 
-                        @click="toggleDarkMode"
-                        class="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
-                        title="Toggle Dark Mode"
-                    >
-                        <!-- Sun Icon -->
-                        <svg v-if="isDark" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path>
-                        </svg>
-                        <!-- Moon Icon -->
-                        <svg v-else class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path>
-                        </svg>
-                    </button>
 
-                    <!-- Team Switcher -->
-                    <Dropdown
-                        align="right"
-                        width="60"
-                        v-if="$page.props.auth.user.current_team"
-                    >
-                        <template #trigger>
-                            <span class="inline-flex rounded-md">
-                                <button
-                                    type="button"
-                                    class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-gray-500 bg-white dark:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-300 focus:outline-none transition ease-in-out duration-150"
-                                >
-                                    {{
-                                        $page.props.auth.user.current_team.name
-                                    }}
 
-                                    <svg
-                                        class="ml-2 -mr-0.5 h-4 w-4"
-                                        xmlns="http://www.w3.org/2000/svg"
-                                        viewBox="0 0 20 20"
-                                        fill="currentColor"
-                                    >
-                                        <path
-                                            fill-rule="evenodd"
-                                            d="M10 3a1 1 0 01.707.293l3 3a1 1 0 01-1.414 1.414L10 5.414 7.707 7.707a1 1 0 01-1.414-1.414l3-3A1 1 0 0110 3zm-3.707 9.293a1 1 0 011.414 0L10 14.586l2.293-2.293a1 1 0 011.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z"
-                                            clip-rule="evenodd"
-                                        />
-                                    </svg>
-                                </button>
-                            </span>
-                        </template>
 
-                        <template #content>
-                            <div class="w-60">
-                                <!-- Team Management -->
-                                <div
-                                    class="block px-4 py-2 text-xs text-gray-400"
-                                >
-                                    Administrar Equipo
-                                </div>
-
-                                <DropdownLink :href="route('teams.show')">
-                                    Configuración del Equipo
-                                </DropdownLink>
-
-                                <DropdownLink :href="route('teams.create')">
-                                    + Crear Nuevo Equipo
-                                </DropdownLink>
-
-                                <!-- Team Switcher -->
-                                <div
-                                    class="border-t border-gray-200 dark:border-gray-600"
-                                ></div>
-
-                                <div
-                                    class="block px-4 py-2 text-xs text-gray-400"
-                                >
-                                    Cambiar Equipo
-                                </div>
-
-                                <div
-                                    v-for="team in $page.props.auth.user.all_teams"
-                                    :key="team.id"
-                                >
-                                    <form
-                                        @submit.prevent="
-                                            router.put(
-                                                route('current-team.update'),
-                                                { team_id: team.id },
-                                            )
-                                        "
-                                    >
-                                        <DropdownLink as="button">
-                                            <div class="flex items-center">
-                                                <svg
-                                                    v-if="
-                                                        team.id ==
-                                                        $page.props.auth.user
-                                                            .current_team_id
-                                                    "
-                                                    class="mr-2 h-5 w-5 text-green-400"
-                                                    xmlns="http://www.w3.org/2000/svg"
-                                                    fill="none"
-                                                    viewBox="0 0 24 24"
-                                                    stroke-width="1.5"
-                                                    stroke="currentColor"
-                                                >
-                                                    <path
-                                                        stroke-linecap="round"
-                                                        stroke-linejoin="round"
-                                                        d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                                                    />
-                                                </svg>
-                                                <div class="truncate">
-                                                    {{ team.name }}
-                                                </div>
-                                            </div>
-                                        </DropdownLink>
-                                    </form>
-                                </div>
-                            </div>
-                        </template>
-                    </Dropdown>
-
-                    <!-- User Settings Dropdown -->
-                    <Dropdown align="right" width="48">
-                        <template #trigger>
-                            <button
-                                class="flex items-center text-sm font-medium text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 focus:outline-none transition duration-150 ease-in-out"
-                            >
-                                <span>{{ $page.props.auth.user.name }}</span>
-                                <svg
-                                    class="ml-2 -mr-0.5 h-4 w-4"
-                                    xmlns="http://www.w3.org/2000/svg"
-                                    viewBox="0 0 20 20"
-                                    fill="currentColor"
-                                >
-                                    <path
-                                        fill-rule="evenodd"
-                                        d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-                                        clip-rule="evenodd"
-                                    />
-                                </svg>
-                            </button>
-                        </template>
-
-                        <template #content>
-                            <DropdownLink :href="route('profile.edit')">
-                                Perfil
-                            </DropdownLink>
-                            <DropdownLink
-                                :href="route('logout')"
-                                method="post"
-                                as="button"
-                            >
-                                Cerrar Sesión
-                            </DropdownLink>
-                        </template>
-                    </Dropdown>
-                </div>
             </header>
 
             <!-- Main Content Area -->

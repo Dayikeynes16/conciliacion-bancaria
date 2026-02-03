@@ -58,6 +58,11 @@ Route::middleware('auth')->group(function () {
     // Settings Routes
     Route::get('/settings/tolerance', [App\Http\Controllers\ToleranciaController::class, 'edit'])->name('settings.tolerance');
     Route::post('/settings/tolerance', [App\Http\Controllers\ToleranciaController::class, 'update'])->name('settings.tolerance.update');
+
+    // Bank Formats Management
+    Route::resource('bank-formats', \App\Http\Controllers\BankFormatController::class);
+    Route::post('/bank-formats/preview', [\App\Http\Controllers\BankFormatController::class, 'preview'])->name('bank-formats.preview');
+    Route::get('/api/bank-formats', [\App\Http\Controllers\BankFormatController::class, 'list'])->name('bank-formats.list');
 });
 
 require __DIR__.'/auth.php';

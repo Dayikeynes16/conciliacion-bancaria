@@ -57,12 +57,53 @@ class MovimientoController extends Controller
             ->latest()
             ->get();
 
+        // Fetch individual movements query
+        $movementsQuery = \App\Models\Movimiento::query()
+            ->whereHas('archivo', function ($q) {
+                $q->where('team_id', auth()->user()->current_team_id);
+            });
+
+        // Apply filters
+        if ($request->filled('date_from')) {
+            $movementsQuery->whereDate('fecha', '>=', $request->input('date_from'));
+        }
+        if ($request->filled('date_to')) {
+            $movementsQuery->whereDate('fecha', '<=', $request->input('date_to'));
+        }
+        if ($request->filled('amount_min')) {
+            $movementsQuery->where('monto', '>=', $request->input('amount_min'));
+        }
+        if ($request->filled('amount_max')) {
+            $movementsQuery->where('monto', '<=', $request->input('amount_max'));
+        }
+
+        // Fallback to month/year if no specific date range
+        if (!$request->filled('date_from') && !$request->filled('date_to')) {
+             if ($date) {
+                $movementsQuery->whereDate('fecha', $date);
+            } elseif ($month && $year) {
+                $movementsQuery->whereMonth('fecha', $month)
+                    ->whereYear('fecha', $year);
+            }
+        }
+
+        $movements = $movementsQuery->with(['archivo.banco'])
+            ->withCount('conciliaciones')
+            ->orderBy('fecha', 'desc')
+            ->paginate(50)
+            ->withQueryString();
+
         return Inertia::render('Movements/Index', [
             'files' => $files,
+            'movements' => $movements,
             'filters' => [
                 'month' => $month,
                 'year' => $year,
                 'date' => $date,
+                'date_from' => $request->input('date_from'),
+                'date_to' => $request->input('date_to'),
+                'amount_min' => $request->input('amount_min'),
+                'amount_max' => $request->input('amount_max'),
             ],
         ]);
     }
@@ -70,6 +111,7 @@ class MovimientoController extends Controller
     public function show($fileId)
     {
         $movements = \App\Models\Movimiento::where('file_id', $fileId)
+            ->where('team_id', auth()->user()->current_team_id)
             ->withCount('conciliaciones')
             ->orderBy('fecha', 'desc')
             ->get();
@@ -79,6 +121,10 @@ class MovimientoController extends Controller
 
     public function destroy(Archivo $file)
     {
+        if ($file->team_id !== auth()->user()->current_team_id) {
+            abort(403);
+        }
+
         // Delete physical file
         if (\Illuminate\Support\Facades\Storage::exists($file->path)) {
             \Illuminate\Support\Facades\Storage::delete($file->path);

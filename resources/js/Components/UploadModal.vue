@@ -18,8 +18,44 @@ const emit = defineEmits(["close"]);
 const form = useForm({
     files: [],
     statement: null,
-    bank_code: "BBVA", // Default to BBVA
+    files: [],
+    statement: null,
+    bank_code: "", // No default hardcoded
 });
+
+// Format Form - Removed inline logic
+// const formatForm = useForm({...});
+// const showFormatForm = ref(false);
+
+const bankFormats = ref([]);
+
+const fetchFormats = async () => {
+    try {
+        const response = await axios.get(route("bank-formats.list"));
+        bankFormats.value = response.data;
+    } catch (e) {
+        console.error(e);
+    }
+};
+
+// Fetch on mount/open
+import { watch } from 'vue';
+watch(() => props.show, (newVal) => {
+    if (newVal) {
+        fetchFormats().then(() => {
+             // Auto-select first format if available and none selected
+             if (bankFormats.value.length > 0 && !form.bank_code) {
+                 form.bank_code = bankFormats.value[0].id;
+             }
+        });
+    }
+});
+
+const goToCreateFormat = () => {
+    // Close modal first? Or just navigate.
+    // Navigation will unmount this anyway.
+    router.visit(route('bank-formats.create'));
+};
 
 const uploadState = reactive({
     isProcessing: false,
@@ -113,7 +149,12 @@ const processQueue = async () => {
                         uploadState.logs.push(`Duplicado: ${file.name}`);
                         uploadState.duplicateCount++;
                     } else {
-                        uploadState.logs.push(`Error: ${file.name}`);
+                        // Check for specific error message returned from backend
+                        if (response.data.results.file_errors && response.data.results.file_errors.length > 0) {
+                             response.data.results.file_errors.forEach(err => uploadState.logs.push(err));
+                        } else {
+                             uploadState.logs.push(`Error: ${file.name}`);
+                        }
                         uploadState.errorCount++;
                     }
                 }
@@ -327,15 +368,32 @@ const submit = () => {
                         <label
                             for="bank"
                             class="block mb-2 text-sm font-medium text-gray-900 dark:text-gray-300"
-                            >Selecciona el Banco</label
+                            >Selecciona el Banco / Formato</label
                         >
-                        <select
-                            id="bank"
-                            v-model="form.bank_code"
-                            class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
-                        >
-                            <option value="BBVA">BBVA Bancomer</option>
-                        </select>
+                        <div class="flex gap-2">
+                            <select
+                                id="bank"
+                                v-model="form.bank_code"
+                                class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+                            >
+                                <option value="" disabled>Selecciona un formato</option>
+                                <option v-for="format in bankFormats" :key="format.id" :value="format.id">
+                                    {{ format.name }}
+                                </option>
+                            </select>
+                            <button 
+                                type="button"
+                                @click="goToCreateFormat"
+                                class="bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200 font-bold py-2 px-4 rounded"
+                                title="Crear Nuevo Formato (Avanzado)"
+                            >
+                                +
+                            </button>
+                        </div>
+                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                            ¿Tu banco no está en la lista? Haz clic en "+" para crear un formato personalizado.
+                        </p>
+
                         <p
                             v-if="form.errors.bank_code"
                             class="mt-2 text-sm text-red-600"
@@ -497,9 +555,9 @@ const submit = () => {
                             uploadState.totalFiles === 0
                         "
                         :class="{
-                            'opacity-25': !form.files.length && !form.statement,
+                            'opacity-25': (!form.files.length && !form.statement) || (form.statement && !form.bank_code),
                         }"
-                        :disabled="!form.files.length && !form.statement"
+                        :disabled="(!form.files.length && !form.statement) || (form.statement && !form.bank_code)"
                     >
                         Iniciar Carga
                     </PrimaryButton>

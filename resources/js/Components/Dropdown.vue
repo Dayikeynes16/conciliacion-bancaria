@@ -6,11 +6,13 @@ const props = withDefaults(
         align?: 'left' | 'right';
         width?: '48' | '60';
         contentClasses?: string;
+        direction?: 'down' | 'up';
     }>(),
     {
         align: 'right',
         width: '48',
         contentClasses: 'py-1 bg-white dark:bg-gray-700',
+        direction: 'down',
     },
 );
 
@@ -58,16 +60,20 @@ const open = ref(false);
 
         <Transition
             enter-active-class="transition ease-out duration-200"
-            enter-from-class="opacity-0 scale-95"
-            enter-to-class="opacity-100 scale-100"
+            :enter-from-class="direction === 'up' ? 'opacity-0 scale-95 translate-y-2' : 'opacity-0 scale-95 -translate-y-2'"
+            :enter-to-class="direction === 'up' ? 'opacity-100 scale-100 translate-y-0' : 'opacity-100 scale-100 translate-y-0'"
             leave-active-class="transition ease-in duration-75"
-            leave-from-class="opacity-100 scale-100"
-            leave-to-class="opacity-0 scale-95"
+            :leave-from-class="direction === 'up' ? 'opacity-100 scale-100 translate-y-0' : 'opacity-100 scale-100 translate-y-0'"
+            :leave-to-class="direction === 'up' ? 'opacity-0 scale-95 translate-y-2' : 'opacity-0 scale-95 -translate-y-2'"
         >
             <div
                 v-show="open"
-                class="absolute z-50 mt-2 rounded-md shadow-lg"
-                :class="[widthClass, alignmentClasses]"
+                class="absolute z-50 rounded-md shadow-lg"
+                :class="[
+                    widthClass, 
+                    alignmentClasses,
+                    direction === 'up' ? 'bottom-full mb-2' : 'mt-2'
+                ]"
                 style="display: none"
                 @click="open = false"
             >

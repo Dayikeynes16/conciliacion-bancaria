@@ -17,10 +17,23 @@ class TeamMemberController extends Controller
         if (! $team) {
             abort(404, 'No team context found.');
         }
+        
+        // Ensure we have the latest data (including RFC)
+        $team->refresh();
+
+        $members = $team->users;
+        
+        // Ensure owner is in the list (for older teams or if attach failed)
+        $owner = $team->owner;
+        if ($owner && ! $members->contains('id', $owner->id)) {
+            // Mock pivot for consistency in frontend
+            $owner->setRelation('pivot', \Illuminate\Database\Eloquent\Relations\Pivot::fromAttributes($team, ['role' => 'owner', 'user_id' => $owner->id, 'team_id' => $team->id], 'team_user', true));
+            $members->push($owner);
+        }
 
         return Inertia::render('Teams/Show', [
             'team' => $team, // Team model includes user_id
-            'members' => $team->users,
+            'members' => $members,
             'invitations' => $team->invitations,
         ]);
     }

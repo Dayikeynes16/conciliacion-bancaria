@@ -18,6 +18,7 @@ class TeamController extends Controller
     {
         $request->validate([
             'name' => 'required|string|max:255',
+            'rfc' => 'nullable|string|max:13',
         ]);
 
         $user = Auth::user();
@@ -25,6 +26,7 @@ class TeamController extends Controller
         $team = Team::create([
             'user_id' => $user->id,
             'name' => $request->name,
+            'rfc' => $request->rfc,
             'personal_team' => false,
         ]);
 
@@ -41,12 +43,18 @@ class TeamController extends Controller
     {
         $this->authorize('update', $team);
 
+        if ($team->user_id !== Auth::id()) {
+            abort(403, 'Solo el propietario del equipo puede editarlo.');
+        }
+
         $request->validate([
             'name' => 'required|string|max:255',
+            'rfc' => 'nullable|string|max:13',
         ]);
 
         $team->update([
             'name' => $request->name,
+            'rfc' => $request->rfc,
         ]);
 
         return back()->with('success', 'Equipo actualizado correctamente.');

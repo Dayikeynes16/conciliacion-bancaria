@@ -48,6 +48,12 @@ class FileUploadController extends Controller
                         $content = Storage::get($path);
                         $data = $cfdiParser->parse($content);
 
+                        // Validate RFC Emisor against Team RFC
+                        $team = \App\Models\Team::find($teamId);
+                        if ($team->rfc && $data['rfc_emisor'] !== $team->rfc) {
+                             throw new \Exception("RFC mismatch: The invoice belongs to another team/enterprise ({$data['rfc_emisor']}). Expected: {$team->rfc}");
+                        }
+
                         // Check duplicate UUID within the TEAM
                         $exists = Factura::where('team_id', $teamId)->where('uuid', $data['uuid'])->exists();
 
@@ -83,10 +89,13 @@ class FileUploadController extends Controller
                      // Check for Duplicate Entry SQL error specifically
                     if (str_contains($e->getMessage(), 'Duplicate entry')) {
                         $results['xml_xml_duplicates']++;
+                    } elseif (str_contains($e->getMessage(), 'RFC mismatch')) {
+                        $results['xml_other_errors']++; 
+                        $results['file_errors'][] = "Error ({$file->getClientOriginalName()}): Esta factura no fue emitida por ti (RFC Incorrecto).";
                     } else {
-                        // Log real error for debugging
                         Log::error("XML Error: " . $e->getMessage());
                         $results['xml_other_errors']++;
+                        $results['file_errors'][] = "Error ({$file->getClientOriginalName()}): " . $e->getMessage();
                     }
                 }
             }
@@ -131,8 +140,17 @@ class FileUploadController extends Controller
                          throw new \Exception("DUPLICATE_FILE");
                     }
 
-                    $bankCode = $request->input('bank_code', 'BBVA');
-                    $banco = Banco::firstOrCreate(['codigo' => $bankCode], ['nombre' => $bankCode.' Bank']);
+                    $bankCode = $request->input('bank_code');
+                    
+                    $bankName = $bankCode . ' Bank';
+                    if (is_numeric($bankCode)) {
+                         $format = \App\Models\BankFormat::find($bankCode);
+                         if ($format) {
+                             $bankName = $format->name;
+                         }
+                    }
+
+                    $banco = Banco::firstOrCreate(['codigo' => $bankCode], ['nombre' => $bankName]);
 
                     // Create Archivo Record
                     $archivo = Archivo::create([

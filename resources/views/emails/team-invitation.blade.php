@@ -4,7 +4,7 @@
     <style>
         body { font-family: sans-serif; line-height: 1.5; color: #333; }
         .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-        .button { display: inline-block; padding: 10px 20px; background-color: #4f46e5; color: white; text-decoration: none; border-radius: 5px; font-weight: bold; }
+        .button { display: inline-block; padding: 12px 24px; background-color: #1f2937; color: white; text-decoration: none; border-radius: 6px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; font-size: 14px; }
         .footer { margin-top: 20px; font-size: 0.8em; color: #777; }
     </style>
 </head>

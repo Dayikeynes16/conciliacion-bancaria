@@ -74,6 +74,25 @@ class DashboardController extends Controller
                 ];
             });
 
+        // Last Month Statistics
+        $lastMonth = Carbon::createFromDate($year, $month, 1)->subMonth();
+        
+        $conciliatedLastMonth = Conciliacion::whereHas('factura', function ($q) use ($teamId) {
+            $q->where('team_id', $teamId);
+        })
+            ->whereMonth('created_at', $lastMonth->month)
+            ->whereYear('created_at', $lastMonth->year)
+            ->count();
+
+        $paymentsLastMonth = Movimiento::where('team_id', $teamId)
+            ->whereMonth('fecha', $lastMonth->month)
+            ->whereYear('fecha', $lastMonth->year)
+            ->where(function ($query) {
+                $query->where('tipo', 'abono')
+                    ->orWhere('tipo', 'Abono');
+            })
+            ->count();
+
         return Inertia::render('Dashboard', [
             'stats' => [
                 'pendingInvoices' => $pendingInvoicesCount,
@@ -81,6 +100,8 @@ class DashboardController extends Controller
                 'pendingMovements' => $pendingMovementsCount,
                 'pendingMovementsAmount' => $totalPendingMovementsAmount,
                 'conciliatedThisMonth' => $conciliatedThisMonth,
+                'conciliatedLastMonth' => $conciliatedLastMonth,
+                'paymentsLastMonth' => $paymentsLastMonth,
             ],
             'recentActivity' => $recentConciliations,
         ]);

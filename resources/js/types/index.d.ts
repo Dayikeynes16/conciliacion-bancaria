@@ -1,3 +1,18 @@
+export interface BankFormat {
+    id: number;
+    team_id: number;
+    name: string;
+    start_row: number;
+    date_column: string;
+    description_column: string;
+    amount_column: string;
+    reference_column: string | null;
+    type_column: string | null;
+    color?: string;
+    created_at: string;
+    updated_at: string;
+}
+
 export interface User {
     id: number;
     name: string;
