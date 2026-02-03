@@ -57,7 +57,7 @@ watch(
                     <StatusTabs 
                         v-model="activeTab"
                         :pending-count="pendingInvoices.length + pendingMovements.length"
-                        :conciliated-count="0" 
+                        :conciliated-count="conciliatedInvoices.length + conciliatedMovements.length" 
                     />
 
                     <!-- Search -->

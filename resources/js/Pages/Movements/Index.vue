@@ -17,6 +17,7 @@ const props = defineProps<{
         original_name?: string;
         created_at: string;
         banco?: { nombre: string };
+        bank_format?: { name: string };
         movimientos_count: number;
     }>;
     movements: {
@@ -316,7 +317,7 @@ const formatDateNoTime = (date?: string) => {
                                             <td class="py-4 px-6">{{ file.id }}</td>
                                             <td class="py-4 px-6">
                                                 <span class="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-0.5 rounded dark:bg-blue-200 dark:text-blue-800 border border-blue-400">
-                                                    {{ file.banco?.nombre || "Desconocido" }}
+                                                    {{ file.bank_format?.name || file.banco?.nombre || "Desconocido" }}
                                                 </span>
                                             </td>
                                             <td class="py-4 px-6 truncate max-w-xs" :title="file.original_name || file.path">

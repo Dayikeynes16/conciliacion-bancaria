@@ -194,5 +194,21 @@
     "conciliaciones": "conciliaciones",
     "pagos": "pagos",
     "No hay facturas pendientes este mes.": "No hay facturas pendientes este mes.",
-    "No hay pagos por conciliar este mes.": "No hay pagos por conciliar este mes."
+    "No hay pagos por conciliar este mes.": "No hay pagos por conciliar este mes.",
+    "Información del Perfil": "Información del Perfil",
+    "Actualiza la información de tu cuenta y dirección de correo.": "Actualiza la información de tu cuenta y dirección de correo.",
+    "Actualizar Contraseña": "Actualizar Contraseña",
+    "Asegúrate de que tu cuenta esté usando una contraseña larga y aleatoria para mantenerse segura.": "Asegúrate de que tu cuenta esté usando una contraseña larga y aleatoria para mantenerse segura.",
+    "Eliminar Cuenta": "Eliminar Cuenta",
+    "Una vez que tu cuenta sea eliminada, todos sus recursos y datos serán eliminados permanentemente. Antes de eliminar tu cuenta, por favor descarga cualquier dato o información que desees conservar.": "Una vez que tu cuenta sea eliminada, todos sus recursos y datos serán eliminados permanentemente. Antes de eliminar tu cuenta, por favor descarga cualquier dato o información que desees conservar.",
+    "Tu dirección de correo no está verificada.": "Tu dirección de correo no está verificada.",
+    "Haz clic aquí para reenviar el correo de verificación.": "Haz clic aquí para reenviar el correo de verificación.",
+    "Un nuevo enlace de verificación ha sido enviado a tu dirección de correo.": "Un nuevo enlace de verificación ha sido enviado a tu dirección de correo.",
+    "Guardado.": "Guardado.",
+    "Contraseña Actual": "Contraseña Actual",
+    "Nueva Contraseña": "Nueva Contraseña",
+    "Confirmar Contraseña": "Confirmar Contraseña",
+    "¿Estás seguro de que deseas eliminar tu cuenta?": "¿Estás seguro de que deseas eliminar tu cuenta?",
+    "Una vez que tu cuenta sea eliminada, todos sus recursos y datos serán eliminados permanentemente. Por favor ingresa tu contraseña para confirmar que deseas eliminar tu cuenta permanentemente.": "Una vez que tu cuenta sea eliminada, todos sus recursos y datos serán eliminados permanentemente. Por favor ingresa tu contraseña para confirmar que deseas eliminar tu cuenta permanentemente.",
+    "Contraseña": "Contraseña"
 }

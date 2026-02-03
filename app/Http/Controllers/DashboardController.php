@@ -93,6 +93,11 @@ class DashboardController extends Controller
             })
             ->count();
 
+        $invoicesLastMonth = Factura::where('team_id', $teamId)
+            ->whereMonth('fecha_emision', $lastMonth->month)
+            ->whereYear('fecha_emision', $lastMonth->year)
+            ->count();
+
         return Inertia::render('Dashboard', [
             'stats' => [
                 'pendingInvoices' => $pendingInvoicesCount,
@@ -101,6 +106,7 @@ class DashboardController extends Controller
                 'pendingMovementsAmount' => $totalPendingMovementsAmount,
                 'conciliatedThisMonth' => $conciliatedThisMonth,
                 'conciliatedLastMonth' => $conciliatedLastMonth,
+                'invoicesLastMonth' => $invoicesLastMonth,
                 'paymentsLastMonth' => $paymentsLastMonth,
             ],
             'recentActivity' => $recentConciliations,

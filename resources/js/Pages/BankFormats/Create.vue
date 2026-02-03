@@ -6,6 +6,7 @@ import PrimaryButton from "@/Components/PrimaryButton.vue";
 import SecondaryButton from "@/Components/SecondaryButton.vue";
 import axios from "axios";
 import { trans } from "laravel-vue-i18n";
+import Swal from 'sweetalert2';
 
 const props = defineProps({
     format: Object,
@@ -70,7 +71,11 @@ const uploadPreview = async () => {
         rows.value = response.data.rows;
     } catch (error) {
         console.error("Preview failed", error);
-        alert(trans("Error reading file"));
+        Swal.fire({
+            icon: 'error',
+            title: trans('Error'),
+            text: trans('Error reading file'),
+        });
     } finally {
         isPreviewing.value = false;
     }
@@ -117,7 +122,13 @@ const setStartRow = (rowIndex) => {
 };
 
 const saveFormat = () => {
-    if (!form.name) return alert(trans("Please enter a name"));
+    if (!form.name) {
+        return Swal.fire({
+            icon: 'warning',
+            title: trans('Campo requerido'),
+            text: trans('Por favor ingresa un nombre'),
+        });
+    }
     
     // Only require mapping if we are NOT in simple edit mode OR if rows are present (meaning re-mapping)
     // If Editing and NO rows loaded, we preserve existing mapping unless user uploaded a file.
@@ -127,7 +138,11 @@ const saveFormat = () => {
     
     if (isRemapping) {
          if (!columnMappings.value.fecha || !columnMappings.value.descripcion || !columnMappings.value.monto) {
-            return alert(trans("Please map Date, Description and Amount columns"));
+            return Swal.fire({
+                icon: 'warning',
+                title: trans('Columnas incompletas'),
+                text: trans('Por favor asigna las columnas de Fecha, Descripción y Monto'),
+            });
         }
         form.date_column = columnMappings.value.fecha;
         form.description_column = columnMappings.value.descripcion;
@@ -141,7 +156,13 @@ const saveFormat = () => {
             onSuccess: () => router.visit(route('bank-formats.index')),
         });
     } else {
-        if (!isRemapping) return alert(trans("Please upload a file to map columns.")); // Creation requires mapping
+        if (!isRemapping) {
+            return Swal.fire({
+                icon: 'info',
+                title: trans('Archivo requerido'),
+                text: trans('Por favor sube un archivo para asignar las columnas.'),
+            }); 
+        } // Creation requires mapping
         form.post(route('bank-formats.store'), {
             onSuccess: () => router.visit(route('bank-formats.index')),
         });

@@ -52,7 +52,7 @@ class MovimientoController extends Controller
             ->when($date, function ($q) use ($date) {
                 return $q->whereDate('created_at', $date);
             })
-             ->with(['banco'])
+             ->with(['banco', 'bankFormat']) // Eager load format
             ->withCount('movimientos')
             ->latest()
             ->get();

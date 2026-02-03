@@ -18,6 +18,14 @@ class TeamInvitationController extends Controller
         if (Auth::check()) {
             $user = Auth::user();
 
+            // Check if user is the owner
+            if ($invitation->team->user_id === $user->id) {
+                // Delete the invitation as it is redundant
+                $invitation->delete();
+                
+                return redirect()->route('dashboard')->with('info', 'Ya eres el propietario de este equipo.');
+            }
+
             // Link user to team if not already linked
             if (! $invitation->team->users()->where('user_id', $user->id)->exists()) {
                 $invitation->team->users()->attach($user->id, ['role' => $invitation->role]);
