@@ -79,18 +79,22 @@ const sort = (column: string) => {
 };
 
 const formatDate = (date: string) => {
-    return new Date(date).toLocaleDateString("es-MX", {
+    const d = new Date(date);
+    const userTimezoneOffset = d.getTimezoneOffset() * 60000;
+    const adjustedDate = new Date(d.getTime() + userTimezoneOffset);
+    return adjustedDate.toLocaleDateString("es-MX", {
         year: "numeric",
         month: "long",
         day: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
     });
 };
 
 const formatSemDate = (date?: string) => {
     if (!date) return "N/A";
-    return new Date(date).toLocaleDateString("es-MX");
+    const d = new Date(date);
+    const userTimezoneOffset = d.getTimezoneOffset() * 60000;
+    const adjustedDate = new Date(d.getTime() + userTimezoneOffset);
+    return adjustedDate.toLocaleDateString("es-MX");
 };
 
 const formatCurrency = (amount: number) => {

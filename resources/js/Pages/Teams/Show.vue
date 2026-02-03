@@ -16,6 +16,7 @@ const props = defineProps<{
         id: number;
         user_id: number;
         name: string;
+        rfc: string | null;
     };
     members: Array<{
         id: number;
@@ -47,6 +48,7 @@ const inviteUser = () => {
 
 const updateForm = useForm({
     name: props.team.name,
+    rfc: props.team.rfc || '',
 });
 
 const updateTeamName = () => {
@@ -132,6 +134,19 @@ const cancelInvitation = (id: number) => {
                                 />
                                 <InputError class="mt-2" :message="updateForm.errors.name" />
                             </div>
+                            
+                            <div class="flex-1 max-w-md">
+                                <InputLabel for="team_rfc" value="RFC" class="sr-only" />
+                                <TextInput
+                                    id="team_rfc"
+                                    type="text"
+                                    class="block w-full"
+                                    v-model="updateForm.rfc"
+                                    placeholder="RFC (Opcional)"
+                                    maxlength="13"
+                                />
+                                <InputError class="mt-2" :message="updateForm.errors.rfc" />
+                            </div>
                             <PrimaryButton :disabled="updateForm.processing" v-if="updateForm.isDirty">Guardar</PrimaryButton>
                         </form>
                     </section>
@@ -202,7 +217,7 @@ const cancelInvitation = (id: number) => {
                                         <td class="px-6 py-4">{{ new Date(invite.created_at).toLocaleDateString() }}</td>
                                         <td class="px-6 py-4">
                                             <button @click="copyLink(invite.token)" class="text-blue-600 dark:text-blue-400 hover:underline mr-4">Copiar Enlace</button>
-                                            <button @click="cancelInvitation(invite.id)" class="text-red-600 dark:text-red-400 hover:underline">Eliminar</button>
+                                            <button v-if="team.user_id === $page.props.auth.user.id" @click="cancelInvitation(invite.id)" class="text-red-600 dark:text-red-400 hover:underline">Eliminar</button>
                                         </td>
                                     </tr>
                                 </tbody>

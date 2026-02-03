@@ -55,6 +55,10 @@ class TeamInvitationController extends Controller
             abort(403);
         }
 
+        if ($invitation->team->user_id !== Auth::id()) {
+            abort(403, 'Solo el propietario del equipo puede eliminar invitaciones.');
+        }
+
         $invitation->delete();
 
         return back()->with('success', 'Invitación eliminada.');

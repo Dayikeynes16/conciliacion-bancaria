@@ -8,6 +8,7 @@ import InputLabel from '@/Components/InputLabel.vue';
 
 const form = useForm({
     name: '',
+    rfc: '',
 });
 
 const submit = () => {
@@ -52,6 +53,19 @@ const submit = () => {
                                     placeholder="Ej. Mi Empresa S.A."
                                 />
                                 <InputError class="mt-2" :message="form.errors.name" />
+                            </div>
+
+                            <div>
+                                <InputLabel for="rfc" value="RFC (Opcional)" />
+                                <TextInput
+                                    id="rfc"
+                                    type="text"
+                                    class="mt-1 block w-full"
+                                    v-model="form.rfc"
+                                    placeholder="RFC del Equipo"
+                                    maxlength="13"
+                                />
+                                <InputError class="mt-2" :message="form.errors.rfc" />
                             </div>
 
                             <div class="flex items-center gap-4">

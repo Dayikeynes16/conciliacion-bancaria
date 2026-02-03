@@ -11,7 +11,7 @@ class Team extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['name', 'user_id', 'personal_team'];
+    protected $fillable = ['name', 'user_id', 'personal_team', 'rfc'];
 
     protected $casts = [
         'personal_team' => 'boolean',

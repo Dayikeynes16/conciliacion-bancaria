@@ -19,24 +19,54 @@ class ReconciliationController extends Controller
         $month = $request->input('month');
         $year = $request->input('year');
 
-        // Fetch unreconciled items
-        $invoices = Factura::where('team_id', $teamId)
-            ->whereMonth('fecha_emision', $month)
-            ->whereYear('fecha_emision', $year)
-            ->doesntHave('conciliaciones')
-            ->orderBy('fecha_emision', 'desc')
-            ->get();
+        // New Filters
+        $dateFrom = $request->input('date_from');
+        $dateTo = $request->input('date_to');
+        $amountMin = $request->input('amount_min');
+        $amountMax = $request->input('amount_max');
 
-        $movements = Movimiento::where('team_id', $teamId)
-            ->whereMonth('fecha', $month)
-            ->whereYear('fecha', $year)
+        // Queries
+        $invoicesQuery = Factura::where('team_id', $teamId)->doesntHave('conciliaciones');
+        $movementsQuery = Movimiento::where('team_id', $teamId)
             ->where(function ($query) {
-                $query->where('tipo', 'abono')
-                    ->orWhere('tipo', 'Abono');
+                $query->where('tipo', 'abono')->orWhere('tipo', 'Abono');
             })
-            ->doesntHave('conciliaciones')
-            ->orderBy('fecha', 'desc')
-            ->get();
+            ->doesntHave('conciliaciones');
+
+        // Date Filter Strategy
+        if ($dateFrom || $dateTo) {
+            if ($dateFrom) {
+                $invoicesQuery->whereDate('fecha_emision', '>=', $dateFrom);
+                $movementsQuery->whereDate('fecha', '>=', $dateFrom);
+            }
+            if ($dateTo) {
+                $invoicesQuery->whereDate('fecha_emision', '<=', $dateTo);
+                $movementsQuery->whereDate('fecha', '<=', $dateTo);
+            }
+        } else {
+            // Fallback to Month/Year w/ strict filtering
+            if ($month) {
+                $invoicesQuery->whereMonth('fecha_emision', $month);
+                $movementsQuery->whereMonth('fecha', $month);
+            }
+            if ($year) {
+                $invoicesQuery->whereYear('fecha_emision', $year);
+                $movementsQuery->whereYear('fecha', $year);
+            }
+        }
+
+        // Amount Filter
+        if ($amountMin) {
+            $invoicesQuery->where('monto', '>=', $amountMin);
+            $movementsQuery->where('monto', '>=', $amountMin);
+        }
+        if ($amountMax) {
+            $invoicesQuery->where('monto', '<=', $amountMax);
+            $movementsQuery->where('monto', '<=', $amountMax);
+        }
+
+        $invoices = $invoicesQuery->orderBy('fecha_emision', 'desc')->get();
+        $movements = $movementsQuery->orderBy('fecha', 'desc')->get();
 
         // Fetch Tolerance Settings
         $tolerancia = \App\Models\Tolerancia::firstOrCreate(
@@ -49,6 +79,14 @@ class ReconciliationController extends Controller
             'invoices' => $invoices,
             'movements' => $movements,
             'tolerance' => $toleranceAmount,
+            'filters' => [
+                'month' => $month,
+                'year' => $year,
+                'date_from' => $dateFrom,
+                'date_to' => $dateTo,
+                'amount_min' => $amountMin,
+                'amount_max' => $amountMax,
+            ],
         ]);
     }
 
@@ -90,6 +128,16 @@ class ReconciliationController extends Controller
             'matches.*.movement_id' => 'required|exists:movimientos,id',
         ]);
 
+        foreach ($request->matches as $match) {
+             // Verify ownership for each pair
+             $invoice = Factura::where('id', $match['invoice_id'])->where('team_id', auth()->user()->current_team_id)->exists();
+             $movement = Movimiento::where('id', $match['movement_id'])->where('team_id', auth()->user()->current_team_id)->exists();
+
+             if (!$invoice || !$movement) {
+                 abort(403, 'Unauthorized access to resources.');
+             }
+        }
+
         $count = 0;
         foreach ($request->matches as $match) {
             $matcher->reconcile(
@@ -110,6 +158,25 @@ class ReconciliationController extends Controller
             'movement_ids' => 'required|array',
         ]);
 
+        // Validate RFC consistency locally & Ownership
+        $invoices = Factura::where('team_id', auth()->user()->current_team_id)
+            ->whereIn('id', $request->invoice_ids)
+            ->get();
+
+        if ($invoices->count() !== count($request->invoice_ids)) {
+             abort(403, 'Unauthorized access to some resources.');
+        }
+        if ($invoices->count() > 1) {
+            $firstRfc = $invoices->first()->rfc;
+            $mismatch = $invoices->some(function ($invoice) use ($firstRfc) {
+                return $invoice->rfc !== $firstRfc;
+            });
+
+            if ($mismatch) {
+                return back()->withErrors(['error' => 'Discrepancia de RFC: Todas las facturas seleccionadas deben pertenecer al mismo RFC receptor.']);
+            }
+        }
+
         $matcher->reconcile($request->invoice_ids, $request->movement_ids, 'manual');
 
         return back()->with('success', 'Conciliación manual registrada exitosamente.');
@@ -120,22 +187,34 @@ class ReconciliationController extends Controller
         $teamId = auth()->user()->current_team_id;
         $search = $request->input('search');
 
+        // Date selection
         $month = $request->input('month');
         $year = $request->input('year');
+        $dateFrom = $request->input('date_from');
+        $dateTo = $request->input('date_to');
+        
+        // Amount selection
+        $amountMin = $request->input('amount_min');
+        $amountMax = $request->input('amount_max');
 
-        // 1. paginate distinct group_ids
+        // 1. Paginate distinct group_ids (filtered)
         $query = Conciliacion::query()
             ->join('facturas', 'conciliacions.factura_id', '=', 'facturas.id')
             ->join('movimientos', 'conciliacions.movimiento_id', '=', 'movimientos.id')
-            ->where('facturas.team_id', $teamId) // Ensure team ownership
-            ->whereMonth('conciliacions.created_at', $month)
-            ->whereYear('conciliacions.created_at', $year)
-            ->distinct()
-            ->select('conciliacions.group_id', 'conciliacions.created_at'); // Select created_at for sorting
+            ->where('facturas.team_id', $teamId);
 
+        // Date Filter Strategy: Range takes precedence over Month/Year picker
+        if ($dateFrom || $dateTo) {
+             if ($dateFrom) $query->whereDate('conciliacions.created_at', '>=', $dateFrom);
+             if ($dateTo) $query->whereDate('conciliacions.created_at', '<=', $dateTo);
+        } else {
+             // Fallback to Month/Year if no specific range provided
+             if ($month) $query->whereMonth('conciliacions.created_at', $month);
+             if ($year) $query->whereYear('conciliacions.created_at', $year);
+        }
+
+        // Search Logic
         if ($search) {
-             // Search logic is harder with groups. 
-             // We need groups containing matching invoices/movements.
              $query->where(function($q) use ($search) {
                  $q->where('facturas.nombre', 'like', "%{$search}%")
                    ->orWhere('facturas.rfc', 'like', "%{$search}%")
@@ -145,7 +224,19 @@ class ReconciliationController extends Controller
              });
         }
         
-        $groupsPager = $query->latest('conciliacions.created_at')
+        // Grouping & Filtering by Aggregate Amount
+        $query->groupBy('conciliacions.group_id')
+              ->select('conciliacions.group_id')
+              ->selectRaw('MAX(conciliacions.created_at) as created_at');
+
+        // Amount Filter (Total Applied in Group)
+        if ($amountMin || $amountMax) {
+            $sumExpr = 'SUM(conciliacions.monto_aplicado)';
+            if ($amountMin) $query->havingRaw("$sumExpr >= ?", [$amountMin]);
+            if ($amountMax) $query->havingRaw("$sumExpr <= ?", [$amountMax]);
+        }
+        
+        $groupsPager = $query->orderBy('created_at', 'desc')
                              ->paginate(15)
                              ->withQueryString();
 
@@ -153,7 +244,7 @@ class ReconciliationController extends Controller
         $groupIds = collect($groupsPager->items())->pluck('group_id');
         
         $details = Conciliacion::whereIn('group_id', $groupIds)
-            ->with(['factura', 'movimiento', 'user'])
+            ->with(['factura', 'movimiento.banco', 'user'])
             ->get()
             ->groupBy('group_id');
 
@@ -173,7 +264,6 @@ class ReconciliationController extends Controller
             $totalInvoices = $invoices->sum('monto');
             $totalMovements = $movements->sum('monto');
             
-            // Total Applied in this specific batch? 
             // Sum of monto_aplicado of all items in this group
             $totalApplied = $items->sum('monto_aplicado');
 
@@ -189,11 +279,6 @@ class ReconciliationController extends Controller
             ];
         })->filter();
 
-        // Reconstruct paginator with transformed data
-        // We use Custom Paginator or just pass 'data' and 'links' manually?
-        // Inertia handles LengthAwarePaginator.
-        // We can just keep $groupsPager structure but replace 'data'.
-        
         $groupsPager->setCollection($transformedGroups);
 
         return Inertia::render('Reconciliation/History', [
@@ -202,6 +287,10 @@ class ReconciliationController extends Controller
                 'search' => $search,
                 'month' => $month,
                 'year' => $year,
+                'date_from' => $dateFrom,
+                'date_to' => $dateTo,
+                'amount_min' => $amountMin,
+                'amount_max' => $amountMax,
             ],
         ]);
     }

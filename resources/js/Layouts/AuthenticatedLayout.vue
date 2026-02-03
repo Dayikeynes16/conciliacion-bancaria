@@ -74,6 +74,39 @@ if (typeof window !== 'undefined') {
 
             <!-- Navigation Links -->
             <nav class="mt-5 px-2 space-y-1">
+                
+                <!-- Period Selector (Filters) -->
+                <div class="mb-6 px-2">
+                    <div class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                        Periodo Contable
+                    </div>
+                    <div class="bg-gray-800 rounded-lg p-2 border border-gray-700 shadow-sm">
+                        <div class="grid grid-cols-2 gap-2">
+                            <div class="relative">
+                                <select 
+                                    :value="$page.props.filters.month"
+                                    @change="updateDateFilter('month', ($event.target as HTMLSelectElement).value)"
+                                    class="block w-full text-xs bg-gray-900 border-none text-gray-300 rounded focus:ring-indigo-500 py-1.5 pl-2 pr-6 cursor-pointer appearance-none"
+                                >
+                                    <option v-for="m in 12" :key="m" :value="m">
+                                        {{ new Date(0, m - 1).toLocaleString('es-MX', { month: 'short' }).toUpperCase() }}
+                                    </option>
+                                </select>
+                            </div>
+                            <div class="relative">
+                                <select 
+                                    :value="$page.props.filters.year"
+                                    @change="updateDateFilter('year', ($event.target as HTMLSelectElement).value)"
+                                    class="block w-full text-xs bg-gray-900 border-none text-white font-bold rounded focus:ring-indigo-500 py-1.5 pl-2 pr-6 cursor-pointer appearance-none"
+                                >
+                                    <option v-for="y in $page.props.available_years" :key="y" :value="y">
+                                        {{ y }}
+                                    </option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
                 <SidebarLink
                     :href="route('dashboard')"
                     :active="route().current('dashboard')"
@@ -217,6 +250,18 @@ if (typeof window !== 'undefined') {
                         Configuración
                     </div>
                     <SidebarLink
+                        :href="route('bank-formats.index')"
+                        :active="route().current('bank-formats.*')"
+                    >
+                        <template #icon>
+                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                            </svg>
+                        </template>
+                        Formatos Bancarios
+                    </SidebarLink>
+                    <SidebarLink
+                        v-if="$page.props.auth.user.current_team && $page.props.auth.user.current_team.user_id === $page.props.auth.user.id"
                         :href="route('settings.tolerance')"
                         :active="route().current('settings.tolerance')"
                     >
@@ -435,27 +480,7 @@ if (typeof window !== 'undefined') {
                 </div>
 
                 <div class="flex items-center space-x-4">
-                    <!-- Global Date Filter -->
-                    <div class="flex items-center space-x-2 bg-gray-50 dark:bg-gray-700 p-1.5 rounded-lg border border-gray-200 dark:border-gray-600">
-                        <select 
-                            :value="$page.props.filters.month"
-                            @change="updateDateFilter('month', ($event.target as HTMLSelectElement).value)"
-                            class="text-sm border-none bg-transparent focus:ring-0 text-gray-700 dark:text-gray-300 font-medium py-1 pr-8 pl-2 cursor-pointer"
-                        >
-                            <option v-for="m in 12" :key="m" :value="m">
-                                {{ new Date(0, m - 1).toLocaleString('es-MX', { month: 'long' }).charAt(0).toUpperCase() + new Date(0, m - 1).toLocaleString('es-MX', { month: 'long' }).slice(1) }}
-                            </option>
-                        </select>
-                        <select 
-                            :value="$page.props.filters.year"
-                            @change="updateDateFilter('year', ($event.target as HTMLSelectElement).value)"
-                            class="text-sm border-none bg-transparent focus:ring-0 text-gray-700 dark:text-gray-300 font-bold py-1 pr-8 pl-2 cursor-pointer"
-                        >
-                            <option v-for="y in $page.props.available_years" :key="y" :value="y">
-                                {{ y }}
-                            </option>
-                        </select>
-                    </div>
+                    <!-- Global Date Filter Removed (Moved to Sidebar) -->
                     
                     <!-- Dark Mode Toggle -->
                     <button 

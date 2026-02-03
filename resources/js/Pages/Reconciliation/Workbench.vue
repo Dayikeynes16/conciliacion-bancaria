@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout.vue";
 import { Head, useForm, router, Link } from "@inertiajs/vue3";
-import { ref, computed } from "vue";
+import { ref, computed, reactive } from "vue";
 import PrimaryButton from "@/Components/PrimaryButton.vue";
 import Modal from "@/Components/Modal.vue";
 import SecondaryButton from "@/Components/SecondaryButton.vue";
@@ -28,6 +28,14 @@ const props = defineProps<{
     invoices: Invoice[];
     movements: Movement[];
     tolerance: number;
+    filters?: {
+        month?: string;
+        year?: string;
+        date_from?: string;
+        date_to?: string;
+        amount_min?: string;
+        amount_max?: string;
+    };
 }>();
 
 const selectedInvoices = ref<number[]>([]);
@@ -35,6 +43,45 @@ const selectedMovements = ref<number[]>([]);
 const showConfirmationModal = ref(false);
 const confirmationMessage = ref("");
 const confirmationTitle = ref("");
+
+const showErrorModal = ref(false);
+const errorMessage = ref("");
+const errorTitle = ref("");
+
+// Filters Logic
+const filterForm = reactive({
+    date_from: props.filters?.date_from || "",
+    date_to: props.filters?.date_to || "",
+    amount_min: props.filters?.amount_min || "",
+    amount_max: props.filters?.amount_max || "",
+});
+
+const applyFilters = () => {
+    router.get(
+        route("reconciliation.index"),
+        {
+            date_from: filterForm.date_from,
+            date_to: filterForm.date_to,
+            amount_min: filterForm.amount_min,
+            amount_max: filterForm.amount_max,
+            month: props.filters?.month,
+            year: props.filters?.year,
+        },
+        {
+            preserveState: true,
+            replace: true,
+            preserveScroll: true,
+        },
+    );
+};
+
+const clearFilters = () => {
+    filterForm.date_from = "";
+    filterForm.date_to = "";
+    filterForm.amount_min = "";
+    filterForm.amount_max = "";
+    applyFilters();
+};
 
 const toggleInvoice = (id: number) => {
     if (selectedInvoices.value.includes(id)) {
@@ -53,6 +100,26 @@ const toggleMovement = (id: number) => {
         selectedMovements.value.push(id);
     }
 };
+
+const sortedInvoices = computed(() => {
+    return [...props.invoices].sort((a, b) => {
+        const aSelected = selectedInvoices.value.includes(a.id);
+        const bSelected = selectedInvoices.value.includes(b.id);
+        if (aSelected && !bSelected) return -1;
+        if (!aSelected && bSelected) return 1;
+        return 0;
+    });
+});
+
+const sortedMovements = computed(() => {
+    return [...props.movements].sort((a, b) => {
+        const aSelected = selectedMovements.value.includes(a.id);
+        const bSelected = selectedMovements.value.includes(b.id);
+        if (aSelected && !bSelected) return -1;
+        if (!aSelected && bSelected) return 1;
+        return 0;
+    });
+});
 
 const processing = ref(false);
 const autoReconciling = ref(false);
@@ -84,8 +151,10 @@ const validateAndReconcile = () => {
         const hasMismatch = selectedInvoiceObjects.some(i => i.rfc !== firstRFC);
         
         if (hasMismatch) {
-            title = "Advertencias de Conciliación";
-            warnings.push("⚠ Discrepancia de RFC:\nLas facturas seleccionadas pertenecen a diferentes RFCs receptores. Para conciliar múltiples facturas a un pago, estas deben haber sido emitidas a la misma persona/entidad.");
+            errorTitle.value = "Error de RFC";
+            errorMessage.value = "Las facturas seleccionadas deben pertenecer al mismo RFC receptor.";
+            showErrorModal.value = true;
+            return;
         }
     }
 
@@ -167,14 +236,9 @@ const autoReconcile = () => {
             <div class="flex justify-between items-center">
                 <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">Mesa de Trabajo</h2>
                 
-                <div class="flex items-center gap-4">
-                    <Link
-                        :href="route('settings.tolerance')"
-                        class="text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 underline decoration-dotted underline-offset-4"
-                    >
-                        Configurar Tolerancia ({{ formatCurrency(props.tolerance) }})
-                    </Link>
 
+
+                <div class="flex items-center gap-4">
                     <button 
                         @click="autoReconcile"
                         :disabled="autoReconciling"
@@ -195,6 +259,36 @@ const autoReconcile = () => {
         <div class="py-12">
             <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
                 
+                <!-- Filters Section -->
+                <div class="mb-6 bg-white dark:bg-gray-800 p-4 rounded-lg shadow border border-gray-200 dark:border-gray-700">
+                    <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Filtros de Búsqueda</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <!-- Date Range -->
+                        <div>
+                            <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Desde</label>
+                            <input type="date" v-model="filterForm.date_from" class="w-full text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md focus:ring-indigo-500 focus:border-indigo-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Hasta</label>
+                            <input type="date" v-model="filterForm.date_to" class="w-full text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md focus:ring-indigo-500 focus:border-indigo-500">
+                        </div>
+
+                        <!-- Amount Range -->
+                        <div>
+                            <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Monto Mín ($)</label>
+                            <input type="number" step="0.01" v-model="filterForm.amount_min" placeholder="0.00" class="w-full text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md focus:ring-indigo-500 focus:border-indigo-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Monto Máx ($)</label>
+                            <input type="number" step="0.01" v-model="filterForm.amount_max" placeholder="0.00" class="w-full text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md focus:ring-indigo-500 focus:border-indigo-500">
+                        </div>
+                    </div>
+                    <div class="mt-4 flex justify-end space-x-3">
+                        <SecondaryButton @click="clearFilters" size="sm">Limpiar</SecondaryButton>
+                        <PrimaryButton @click="applyFilters" size="sm">Aplicar Filtros</PrimaryButton>
+                    </div>
+                </div>
+
                 <!-- Selection Summary Bar -->
                 <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg mb-6 sticky top-0 z-10 p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
                     <div class="flex gap-8">
@@ -242,7 +336,7 @@ const autoReconcile = () => {
                            </div> 
                            
                            <div 
-                                v-for="invoice in invoices" 
+                                v-for="invoice in sortedInvoices" 
                                 :key="invoice.id"
                                 @click="toggleInvoice(invoice.id)"
                                 class="p-3 border rounded-lg cursor-pointer transition-colors relative hover:shadow-md"
@@ -284,7 +378,7 @@ const autoReconcile = () => {
                            </div> 
 
                            <div 
-                                v-for="movement in movements" 
+                                v-for="movement in sortedMovements" 
                                 :key="movement.id"
                                 @click="toggleMovement(movement.id)"
                                 class="p-3 border rounded-lg cursor-pointer transition-colors relative hover:shadow-md"
@@ -343,6 +437,25 @@ const autoReconcile = () => {
                     >
                         Confirmar
                     </DangerButton>
+                </div>
+            </div>
+        </Modal>
+
+        <!-- Error Modal -->
+        <Modal :show="showErrorModal" @close="showErrorModal = false">
+            <div class="p-6">
+                <h2 class="text-lg font-medium text-red-600 dark:text-red-400">
+                    {{ errorTitle }}
+                </h2>
+
+                <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
+                    {{ errorMessage }}
+                </p>
+
+                <div class="mt-6 flex justify-end">
+                    <SecondaryButton @click="showErrorModal = false">
+                        Entendido
+                    </SecondaryButton>
                 </div>
             </div>
         </Modal>

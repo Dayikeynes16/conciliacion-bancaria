@@ -73,9 +73,9 @@ class FacturaController extends Controller
 
     public function destroy(Archivo $file)
     {
-        // Authorization is handled by Archivo policy or check ownership manually if policy not set
-        // Assuming Archivo has team_id or user_id. From previous context, it seems to rely on global scope or manual check.
-        // Let's ensure the user can delete it (e.g. check team_id if available or user_id)
+        if ($file->team_id !== auth()->user()->current_team_id) {
+            abort(403);
+        }
 
         // Delete physical file
         if (\Illuminate\Support\Facades\Storage::exists($file->path)) {

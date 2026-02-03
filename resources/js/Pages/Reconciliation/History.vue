@@ -2,7 +2,7 @@
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout.vue";
 import { Head, Link } from "@inertiajs/vue3";
 import { router } from "@inertiajs/vue3";
-import { ref, watch } from "vue";
+import { ref, watch, reactive } from "vue";
 import debounce from "lodash/debounce";
 import ConfirmationModal from "@/Components/ConfirmationModal.vue";
 import PrimaryButton from "@/Components/PrimaryButton.vue";
@@ -29,6 +29,7 @@ const props = defineProps<{
                 referencia: string;
                 fecha: string;
                 monto: number;
+                banco?: { nombre: string } | null;
             }>;
             total_invoices: number;
             total_movements: number;
@@ -38,33 +39,71 @@ const props = defineProps<{
     };
     filters?: {
         search?: string;
+        month?: string;
+        year?: string;
+        date_from?: string;
+        date_to?: string;
+        amount_min?: string;
+        amount_max?: string;
     };
 }>();
 
 const search = ref(props.filters?.search || "");
 
+// Advanced Filters State
+const filterForm = reactive({
+    date_from: props.filters?.date_from || "",
+    date_to: props.filters?.date_to || "",
+    amount_min: props.filters?.amount_min || "",
+    amount_max: props.filters?.amount_max || "",
+});
+
+const applyFilters = () => {
+    router.get(
+        route("reconciliation.history"),
+        {
+            search: search.value,
+            date_from: filterForm.date_from,
+            date_to: filterForm.date_to,
+            amount_min: filterForm.amount_min,
+            amount_max: filterForm.amount_max,
+            // Preserve Month/Year global filters if needed, but Date Range usually overrides
+            month: props.filters?.month,
+            year: props.filters?.year,
+        },
+        {
+            preserveState: true,
+            replace: true,
+        },
+    );
+};
+
+const clearFilters = () => {
+    filterForm.date_from = "";
+    filterForm.date_to = "";
+    filterForm.amount_min = "";
+    filterForm.amount_max = "";
+    applyFilters();
+};
+
 watch(
     search,
     debounce((value: string) => {
-        router.get(
-            route("reconciliation.history"),
-            { search: value },
-            {
-                preserveState: true,
-                replace: true,
-            },
-        );
-    }, 300),
+        // Reuse applyFilters logic but just for search? 
+        // Or keep separate. Let's redirect to applyFilters
+        applyFilters();
+    }, 500),
 );
 
 const formatDate = (dateString: string) => {
     if (!dateString) return "";
-    return new Date(dateString).toLocaleDateString("es-ES", {
+    const d = new Date(dateString);
+    const userTimezoneOffset = d.getTimezoneOffset() * 60000;
+    const adjustedDate = new Date(d.getTime() + userTimezoneOffset);
+    return adjustedDate.toLocaleDateString("es-ES", {
         year: "numeric",
         month: "long",
         day: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
     });
 };
 
@@ -111,13 +150,46 @@ const closeModal = () => {
 
     <AuthenticatedLayout>
         <template #header>
-            <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-                Historial de Conciliaciones
-            </h2>
+            <div class="flex justify-between items-center">
+                <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
+                    Historial de Conciliaciones
+                </h2>
+            </div>
         </template>
 
         <div class="py-12">
             <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
+                
+                <!-- Filters Section -->
+                <div class="mb-6 bg-white dark:bg-gray-800 p-4 rounded-lg shadow border border-gray-200 dark:border-gray-700">
+                    <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Filtros de Búsqueda</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <!-- Date Range -->
+                        <div>
+                            <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Desde</label>
+                            <input type="date" v-model="filterForm.date_from" class="w-full text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md focus:ring-indigo-500 focus:border-indigo-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Hasta</label>
+                            <input type="date" v-model="filterForm.date_to" class="w-full text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md focus:ring-indigo-500 focus:border-indigo-500">
+                        </div>
+
+                        <!-- Amount Range -->
+                        <div>
+                            <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Monto Mín ($)</label>
+                            <input type="number" step="0.01" v-model="filterForm.amount_min" placeholder="0.00" class="w-full text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md focus:ring-indigo-500 focus:border-indigo-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Monto Máx ($)</label>
+                            <input type="number" step="0.01" v-model="filterForm.amount_max" placeholder="0.00" class="w-full text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md focus:ring-indigo-500 focus:border-indigo-500">
+                        </div>
+                    </div>
+                    <div class="mt-4 flex justify-end space-x-3">
+                        <SecondaryButton @click="clearFilters" size="sm">Limpiar</SecondaryButton>
+                        <PrimaryButton @click="applyFilters" size="sm">Aplicar Filtros</PrimaryButton>
+                    </div>
+                </div>
+
                 <!-- Search Bar -->
                 <div class="flex justify-between items-center mb-6">
                     <div class="relative w-full max-w-md">
@@ -151,7 +223,7 @@ const closeModal = () => {
                     v-if="reconciledGroups.data.length === 0"
                     class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg p-6 text-center text-gray-500 dark:text-gray-400"
                 >
-                    No hay conciliaciones registradas aún.
+                    No hay conciliaciones registradas (ajusta los filtros si es necesario).
                 </div>
 
                 <!-- Groups List -->
@@ -165,6 +237,7 @@ const closeModal = () => {
                         <div
                             class="bg-gray-50 dark:bg-gray-900/50 px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex flex-col md:flex-row justify-between md:items-center gap-4"
                         >
+                            <!-- ... Header Content (Unchanged) ... -->
                             <div>
                                 <h3 class="text-sm font-bold uppercase tracking-wider text-gray-500">
                                     Conciliación
@@ -227,8 +300,9 @@ const closeModal = () => {
                                     >
                                         <div>
                                             <div class="font-medium text-gray-900 dark:text-white">{{ invoice.nombre || 'Factura Eliminada' }}</div>
-                                            <div class="text-xs text-gray-500">{{ invoice.uuid }}</div>
-                                            <div class="text-xs text-gray-400">{{ formatDate(invoice.fecha_emision) }}</div>
+                                            <!-- NEW: RFC Display -->
+                                            <div class="text-xs text-gray-500 font-mono mt-0.5">{{ invoice.rfc }}</div>
+                                            <div class="text-xs text-gray-400 mt-1">{{ formatDate(invoice.fecha_emision) }}</div>
                                         </div>
                                         <div class="font-bold text-gray-700 dark:text-gray-300">
                                             {{ formatCurrency(Number(invoice.monto)) }}
@@ -250,7 +324,11 @@ const closeModal = () => {
                                     >
                                         <div>
                                             <div class="font-medium text-gray-900 dark:text-white">{{ movement.descripcion || 'Sin Descripción' }}</div>
-                                            <div class="text-xs text-gray-500">{{ movement.referencia || 'Ref: N/A' }}</div>
+                                            <!-- NEW: Bank Name Display -->
+                                            <div class="text-xs font-semibold text-indigo-500 mt-0.5" v-if="movement.banco">
+                                                {{ movement.banco.nombre }}
+                                            </div>
+                                            <div class="text-xs text-gray-500 mt-0.5">{{ movement.referencia || 'Ref: N/A' }}</div>
                                             <div class="text-xs text-gray-400">{{ formatDate(movement.fecha) }}</div>
                                         </div>
                                         <div class="font-bold text-gray-700 dark:text-gray-300">

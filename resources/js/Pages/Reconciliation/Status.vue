@@ -44,7 +44,10 @@ const formatCurrency = (amount: number) => {
 
 const formatDate = (dateString: string) => {
     if (!dateString) return "";
-    return new Date(dateString).toLocaleDateString("es-ES", {
+    const d = new Date(dateString);
+    const userTimezoneOffset = d.getTimezoneOffset() * 60000;
+    const adjustedDate = new Date(d.getTime() + userTimezoneOffset);
+    return adjustedDate.toLocaleDateString("es-ES", {
         year: "numeric",
         month: "short",
         day: "numeric",
