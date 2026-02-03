@@ -16,7 +16,7 @@ import { Link } from '@inertiajs/vue3';
 
             <div class="relative z-10 text-center px-10">
                 <Link href="/" class="mb-8 inline-block transform transition hover:scale-105 duration-300">
-                    <ApplicationLogo class="h-32 w-32 fill-current text-white drop-shadow-2xl" />
+                    <ApplicationLogo class="h-auto w-64 max-h-32 drop-shadow-2xl" />
                 </Link>
                 <h2 class="text-4xl font-extrabold text-white tracking-tight mb-4">
                     Conciliación Bancaria
@@ -35,7 +35,7 @@ import { Link } from '@inertiajs/vue3';
              <!-- Mobile Logo (Visible only on small screens) -->
              <div class="lg:hidden mb-8">
                 <Link href="/">
-                    <ApplicationLogo class="h-20 w-20 fill-current text-indigo-600 dark:text-indigo-400" />
+                    <ApplicationLogo class="h-16 w-auto mx-auto" />
                 </Link>
             </div>
 

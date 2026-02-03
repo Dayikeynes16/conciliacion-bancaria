@@ -17,7 +17,7 @@ defineProps<{
         <!-- Navigation -->
         <nav class="w-full flex items-center justify-between p-6 lg:px-12 max-w-7xl mx-auto">
             <div class="flex items-center gap-3">
-                <ApplicationLogo class="w-10 h-10" />
+                <ApplicationLogo class="h-10 w-auto" />
                 <span class="text-xl font-bold text-gray-900 dark:text-white tracking-tight">Conciliación</span>
             </div>
             

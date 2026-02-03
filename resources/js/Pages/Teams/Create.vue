@@ -19,12 +19,12 @@ const submit = () => {
 </script>
 
 <template>
-    <Head title="Crear Nuevo Equipo" />
+    <Head :title="$t('Crear Nuevo Equipo')" />
 
     <AuthenticatedLayout>
         <template #header>
             <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
-                Crear Nuevo Equipo
+                {{ $t('Crear Nuevo Equipo') }}
             </h2>
         </template>
 
@@ -33,15 +33,15 @@ const submit = () => {
                 <div class="p-4 sm:p-8 bg-white dark:bg-gray-800 shadow sm:rounded-lg">
                     <section class="max-w-xl">
                         <header>
-                            <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100">Detalles del Equipo</h2>
+                            <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100">{{ $t('Detalles del Equipo') }}</h2>
                             <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                                Crea un nuevo espacio de trabajo para aislar facturas y movimientos.
+                                {{ $t('Crea un nuevo espacio de trabajo para aislar facturas y movimientos.') }}
                             </p>
                         </header>
 
                         <form @submit.prevent="submit" class="mt-6 space-y-6">
                             <div>
-                                <InputLabel for="name" value="Nombre del Equipo / Empresa" />
+                                <InputLabel for="name" :value="$t('Nombre del Equipo / Empresa')" />
                                 <TextInput
                                     id="name"
                                     type="text"
@@ -50,26 +50,26 @@ const submit = () => {
                                     required
                                     autofocus
                                     autocomplete="name"
-                                    placeholder="Ej. Mi Empresa S.A."
+                                    :placeholder="$t('Ej. Mi Empresa S.A.')"
                                 />
                                 <InputError class="mt-2" :message="form.errors.name" />
                             </div>
 
                             <div>
-                                <InputLabel for="rfc" value="RFC (Opcional)" />
+                                <InputLabel for="rfc" :value="$t('RFC (Opcional)')" />
                                 <TextInput
                                     id="rfc"
                                     type="text"
                                     class="mt-1 block w-full"
                                     v-model="form.rfc"
-                                    placeholder="RFC del Equipo"
+                                    :placeholder="$t('RFC del Equipo')"
                                     maxlength="13"
                                 />
                                 <InputError class="mt-2" :message="form.errors.rfc" />
                             </div>
 
                             <div class="flex items-center gap-4">
-                                <PrimaryButton :disabled="form.processing">Crear Equipo</PrimaryButton>
+                                <PrimaryButton :disabled="form.processing">{{ $t('Crear Equipo') }}</PrimaryButton>
                             </div>
                         </form>
                     </section>

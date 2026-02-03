@@ -67,7 +67,7 @@ const formatDate = (dateString: string) => {
                 
                 <div class="mb-6">
                     <p class="text-gray-500 dark:text-gray-400 text-sm">
-                        Gestiona los formatos de importación para tus extractos bancarios.
+                        {{ $t('Gestiona los formatos de importación para tus extractos bancarios.') }}
                     </p>
                 </div>
 
@@ -115,19 +115,19 @@ const formatDate = (dateString: string) => {
                             <!-- Details Grid -->
                             <div class="grid grid-cols-2 gap-y-4 gap-x-2 text-sm mt-4">
                                 <div>
-                                    <span class="block text-xs font-semibold text-gray-400 uppercase tracking-wider">Fila Inicio</span>
+                                    <span class="block text-xs font-semibold text-gray-400 uppercase tracking-wider">{{ $t('Fila Inicio') }}</span>
                                     <span class="text-gray-700 dark:text-gray-300 font-mono">{{ format.start_row }}</span>
                                 </div>
                                 <div>
-                                    <span class="block text-xs font-semibold text-gray-400 uppercase tracking-wider">Fecha</span>
+                                    <span class="block text-xs font-semibold text-gray-400 uppercase tracking-wider">{{ $t('Fecha') }}</span>
                                     <span class="text-gray-700 dark:text-gray-300 font-mono">{{ format.date_column }}</span>
                                 </div>
                                 <div>
-                                    <span class="block text-xs font-semibold text-gray-400 uppercase tracking-wider">Descripción</span>
+                                    <span class="block text-xs font-semibold text-gray-400 uppercase tracking-wider">{{ $t('Descripción') }}</span>
                                     <span class="text-gray-700 dark:text-gray-300 font-mono">{{ format.description_column }}</span>
                                 </div>
                                 <div>
-                                    <span class="block text-xs font-semibold text-gray-400 uppercase tracking-wider">Monto</span>
+                                    <span class="block text-xs font-semibold text-gray-400 uppercase tracking-wider">{{ $t('Monto') }}</span>
                                     <span class="text-gray-700 dark:text-gray-300 font-mono">{{ format.amount_column }}</span>
                                 </div>
                             </div>
@@ -137,7 +137,7 @@ const formatDate = (dateString: string) => {
                                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-3 h-3">
                                   <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
                                 </svg>
-                                Actualizado {{ formatDate(format.updated_at) }}
+                                {{ $t('Actualizado') }} {{ formatDate(format.updated_at) }}
                             </div>
                         </div>
                     </div>
@@ -152,7 +152,7 @@ const formatDate = (dateString: string) => {
                               <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
                             </svg>
                         </div>
-                        <span class="font-medium text-sm">Agregar nuevo formato</span>
+                        <span class="font-medium text-sm">{{ $t('Agregar nuevo formato') }}</span>
                     </Link>
 
                 </div>
@@ -163,22 +163,21 @@ const formatDate = (dateString: string) => {
         <Modal :show="confirmingFormatDeletion" @close="closeModal">
             <div class="p-6">
                 <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100">
-                    ¿Estás seguro de que quieres eliminar este formato?
+                    {{ $t('¿Estás seguro de que quieres eliminar este formato?') }}
                 </h2>
 
                 <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                    Una vez eliminado, no podrás importar archivos usando este formato.
-                    Esta acción es irreversible.
+                    {{ $t('Una vez eliminado, no podrás importar archivos usando este formato. Esta acción es irreversible.') }}
                 </p>
 
                 <div class="mt-6 flex justify-end">
-                    <SecondaryButton @click="closeModal"> Cancelar </SecondaryButton>
+                    <SecondaryButton @click="closeModal"> {{ $t('Cancelar') }} </SecondaryButton>
 
                     <DangerButton
                         class="ml-3"
                         @click="deleteFormat"
                     >
-                        Eliminar Formato
+                        {{ $t('Eliminar Formato') }}
                     </DangerButton>
                 </div>
             </div>

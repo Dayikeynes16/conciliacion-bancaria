@@ -5,9 +5,10 @@ import SecondaryButton from "@/Components/SecondaryButton.vue";
 import ConfirmationModal from "@/Components/ConfirmationModal.vue";
 import PrimaryButton from "@/Components/PrimaryButton.vue";
 import { Head, router, useForm, Link } from "@inertiajs/vue3";
-import { ref, computed, watch, reactive } from "vue";
+import { ref, computed, reactive } from "vue";
 import axios from "axios";
-import { debounce } from "lodash";
+import MovementFilters from "@/Pages/Reconciliation/Partials/MovementFilters.vue";
+import MovementTable from "@/Pages/Reconciliation/Partials/MovementTable.vue";
 
 const props = defineProps<{
     files: Array<{
@@ -47,35 +48,25 @@ const props = defineProps<{
 const viewMode = ref("files"); // 'files' | 'movements'
 const showModal = ref(false);
 const selectedFile = ref<any>(null);
-const dragging = ref(false);
 const fileMovements = ref<any[]>([]);
 const isLoading = ref(false);
-
 
 const form = useForm({
      file: null as File | null,
      bank_format_id: null as number | null,
 });
 
-// Filters Logic for Movements Tab
-const filterForm = reactive({
-    date_from: props.filters?.date_from || "",
-    date_to: props.filters?.date_to || "",
-    amount_min: props.filters?.amount_min || "",
-    amount_max: props.filters?.amount_max || "",
-});
-
 const activeTab = ref("all"); // 'all', 'abono', 'cargo'
 
-const applyFilters = () => {
+const applyFilters = (filters: any) => {
     router.get(
         route("movements.index"),
         {
-            date_from: filterForm.date_from,
-            date_to: filterForm.date_to,
-            amount_min: filterForm.amount_min,
-            amount_max: filterForm.amount_max,
-            month: props.filters?.month, // Keep sidebar context
+            date_from: filters.date_from,
+            date_to: filters.date_to,
+            amount_min: filters.amount_min,
+            amount_max: filters.amount_max,
+            month: props.filters?.month,
             year: props.filters?.year,
         },
         {
@@ -87,23 +78,11 @@ const applyFilters = () => {
 };
 
 const clearFilters = () => {
-    filterForm.date_from = "";
-    filterForm.date_to = "";
-    filterForm.amount_min = "";
-    filterForm.amount_max = "";
-    applyFilters();
-};
-
-// Format with timezone fix but NO TIME
-const formatDateNoTime = (date?: string) => {
-    if (!date) return "N/A";
-    const d = new Date(date);
-    const userTimezoneOffset = d.getTimezoneOffset() * 60000;
-    const adjustedDate = new Date(d.getTime() + userTimezoneOffset);
-    return adjustedDate.toLocaleDateString("es-MX", {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
+    applyFilters({
+        date_from: '',
+        date_to: '',
+        amount_min: '',
+        amount_max: ''
     });
 };
 
@@ -163,7 +142,6 @@ const confirmingFileDeletion = ref(false);
 const fileIdToDelete = ref<number | null>(null);
 const confirmingBatchDeletion = ref(false);
 const selectedIds = ref<number[]>([]);
-// Removed duplicate form declaration
 const batchForm = useForm({ ids: [] as number[] });
 
 const selectAll = computed({
@@ -176,10 +154,6 @@ const selectAll = computed({
         }
     },
 });
-
-const toggleSelectAll = () => {
-    selectAll.value = !selectAll.value;
-};
 
 const confirmDeleteFile = (file: { id: number }) => {
     fileIdToDelete.value = file.id;
@@ -213,7 +187,6 @@ const deleteFileConfirmed = () => {
     });
 };
 
-// Override existing closeModal to also handle deletion modal
 const closeModal = () => {
     showModal.value = false;
     selectedFile.value = null;
@@ -223,6 +196,18 @@ const closeModal = () => {
     fileIdToDelete.value = null;
     form.reset();
 };
+
+const formatDateNoTime = (date?: string) => {
+    if (!date) return "N/A";
+    const d = new Date(date);
+    const userTimezoneOffset = d.getTimezoneOffset() * 60000;
+    const adjustedDate = new Date(d.getTime() + userTimezoneOffset);
+    return adjustedDate.toLocaleDateString("es-MX", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+    });
+};
 </script>
 
 <template>
@@ -231,7 +216,7 @@ const closeModal = () => {
     <AuthenticatedLayout>
         <template #header>
             <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
-                Movimientos Bancarios
+                {{ $t('Movimientos Bancarios') }}
             </h2>
         </template>
 
@@ -245,14 +230,14 @@ const closeModal = () => {
                             <a href="#" 
                                @click.prevent="viewMode = 'files'"
                                :class="viewMode === 'files' ? 'inline-block p-4 text-blue-600 border-b-2 border-blue-600 rounded-t-lg active dark:text-blue-500 dark:border-blue-500' : 'inline-block p-4 border-b-2 border-transparent rounded-t-lg hover:text-gray-600 hover:border-gray-300 dark:hover:text-gray-300'">
-                                Archivos Cargados
+                                {{ $t('Archivos Cargados') }}
                             </a>
                         </li>
                         <li class="mr-2">
                             <a href="#" 
                                @click.prevent="viewMode = 'movements'"
                                :class="viewMode === 'movements' ? 'inline-block p-4 text-blue-600 border-b-2 border-blue-600 rounded-t-lg active dark:text-blue-500 dark:border-blue-500' : 'inline-block p-4 border-b-2 border-transparent rounded-t-lg hover:text-gray-600 hover:border-gray-300 dark:hover:text-gray-300'">
-                                Todos los Movimientos
+                                {{ $t('Todos los Movimientos') }}
                             </a>
                         </li>
                     </ul>
@@ -264,7 +249,7 @@ const closeModal = () => {
                         <!-- Header & Actions -->
                         <div class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
                             <h3 class="text-lg font-medium">
-                                {{ viewMode === 'files' ? 'Archivos de Movimientos Cargados' : 'Listado General de Movimientos' }}
+                                {{ viewMode === 'files' ? $t('Archivos de Movimientos Cargados') : $t('Listado General de Movimientos') }}
                             </h3>
 
                             <div class="flex items-center gap-4">
@@ -289,36 +274,12 @@ const closeModal = () => {
                         </div>
                     
                     <!-- Filters (Only for Movements Tab) -->
-                    <div v-if="viewMode === 'movements'" class="mb-6 bg-gray-50 dark:bg-gray-700/50 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
-                        <div class="flex justify-between items-center mb-3">
-                            <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-widest">Filtros de Búsqueda</h3>
-                        </div>
-                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                            <!-- Date Range -->
-                            <div>
-                                <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Desde</label>
-                                <input type="date" v-model="filterForm.date_from" class="w-full text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md focus:ring-indigo-500 focus:border-indigo-500">
-                            </div>
-                            <div>
-                                <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Hasta</label>
-                                <input type="date" v-model="filterForm.date_to" class="w-full text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md focus:ring-indigo-500 focus:border-indigo-500">
-                            </div>
-
-                            <!-- Amount Range -->
-                            <div>
-                                <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Monto Mín ($)</label>
-                                <input type="number" step="0.01" v-model="filterForm.amount_min" placeholder="0.00" class="w-full text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md focus:ring-indigo-500 focus:border-indigo-500">
-                            </div>
-                            <div>
-                                <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Monto Máx ($)</label>
-                                <input type="number" step="0.01" v-model="filterForm.amount_max" placeholder="0.00" class="w-full text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md focus:ring-indigo-500 focus:border-indigo-500">
-                            </div>
-                        </div>
-                        <div class="mt-4 flex justify-end space-x-3">
-                            <SecondaryButton @click="clearFilters" size="sm">Limpiar</SecondaryButton>
-                            <PrimaryButton @click="applyFilters" size="sm">Aplicar Filtros</PrimaryButton>
-                        </div>
-                    </div>
+                    <MovementFilters
+                        v-if="viewMode === 'movements'"
+                        :filters="filters"
+                        @apply="applyFilters"
+                        @clear="clearFilters"
+                    />
 
                     <!-- Files View -->
                     <div v-if="viewMode === 'files'">
@@ -337,12 +298,12 @@ const closeModal = () => {
                                                     <input type="checkbox" v-model="selectAll" class="rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500 dark:border-gray-700 dark:bg-gray-900 dark:focus:ring-indigo-600 dark:focus:ring-offset-gray-800" />
                                                 </div>
                                             </th>
-                                            <th scope="col" class="py-3 px-6">ID</th>
-                                            <th scope="col" class="py-3 px-6">Banco</th>
-                                            <th scope="col" class="py-3 px-6">Archivo</th>
-                                            <th scope="col" class="py-3 px-6">Movimientos</th>
-                                            <th scope="col" class="py-3 px-6">Fecha de Carga</th>
-                                            <th scope="col" class="py-3 px-6">Acciones</th>
+                                            <th scope="col" class="py-3 px-6">{{ $t('ID') }}</th>
+                                            <th scope="col" class="py-3 px-6">{{ $t('BANCO') }}</th>
+                                            <th scope="col" class="py-3 px-6">{{ $t('ARCHIVO') }}</th>
+                                            <th scope="col" class="py-3 px-6">{{ $t('MOVIMIENTOS') }}</th>
+                                            <th scope="col" class="py-3 px-6">{{ $t('FECHA DE CARGA') }}</th>
+                                            <th scope="col" class="py-3 px-6">{{ $t('ACCIONES') }}</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -369,8 +330,8 @@ const closeModal = () => {
                                             <td class="py-4 px-6">{{ formatDate(file.created_at) }}</td>
                                             <td class="py-4 px-6">
                                                 <div class="flex items-center gap-4">
-                                                    <button @click.stop="viewDetails(file)" class="font-medium text-blue-600 dark:text-blue-500 hover:underline">Ver Detalle</button>
-                                                    <button @click.stop="confirmDeleteFile(file)" class="font-medium text-red-600 dark:text-red-500 hover:underline">Eliminar</button>
+                                                    <button @click.stop="viewDetails(file)" class="font-medium text-blue-600 dark:text-blue-500 hover:underline">{{ $t('Ver Detalle') }}</button>
+                                                    <button @click.stop="confirmDeleteFile(file)" class="font-medium text-red-600 dark:text-red-500 hover:underline">{{ $t('Eliminar') }}</button>
                                                 </div>
                                             </td>
                                         </tr>
@@ -380,67 +341,10 @@ const closeModal = () => {
                         </div>
 
                         <!-- MOVEMENTS VIEW -->
-                        <div v-else-if="viewMode === 'movements'">
-                             <div v-if="movements.data.length === 0" class="text-center py-8 text-gray-500">
-                                No se encontraron movimientos en este periodo.
-                            </div>
-                            <div v-else>
-                                <div class="overflow-x-auto relative">
-                                    <table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
-                                        <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
-                                            <tr>
-                                                <th class="py-3 px-6">Banco</th>
-                                                <th class="py-3 px-6">Fecha</th>
-                                                <th class="py-3 px-6">Descripción</th>
-                                                <th class="py-3 px-6">Tipo</th>
-                                                <th class="py-3 px-6">Estado</th>
-                                                <th class="py-3 px-6 text-right">Monto</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            <tr v-for="mov in movements.data" :key="mov.id" class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700">
-                                                <td class="py-4 px-6">
-                                                    <div class="flex flex-col">
-                                                         <span class="text-xs font-bold text-indigo-600">{{ mov.archivo?.banco?.nombre || 'N/A' }}</span>
-                                                         <span class="text-[10px] text-gray-400">{{ mov.archivo?.original_name || 'Archivo' }}</span>
-                                                    </div>
-                                                </td>
-                                                <td class="py-4 px-6 whitespace-nowrap">
-                                                    {{ formatDateNoTime(mov.fecha) }}
-                                                </td>
-                                                <td class="py-4 px-6 max-w-sm truncate" :title="mov.descripcion">
-                                                    {{ mov.descripcion }}
-                                                </td>
-                                                <td class="py-4 px-6">
-                                                     <span :class="mov.tipo === 'abono' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'" class="text-xs font-medium px-2.5 py-0.5 rounded">
-                                                        {{ mov.tipo === "abono" ? "Abono" : "Cargo" }}
-                                                    </span>
-                                                </td>
-                                                <td class="py-4 px-6">
-                                                    <span v-if="mov.conciliaciones_count && mov.conciliaciones_count > 0" class="bg-green-100 text-green-800 text-xs font-semibold px-2.5 py-0.5 rounded dark:bg-green-200 dark:text-green-900 border border-green-400">
-                                                        Conciliado
-                                                    </span>
-                                                    <span v-else class="bg-yellow-100 text-yellow-800 text-xs font-semibold px-2.5 py-0.5 rounded dark:bg-yellow-200 dark:text-yellow-900 border border-yellow-400">
-                                                        Pendiente
-                                                    </span>
-                                                </td>
-                                                <td class="py-4 px-6 text-right font-mono" :class="mov.tipo === 'cargo' ? 'text-red-600' : 'text-green-600'">
-                                                    {{ formatCurrency(Number(mov.monto)) }}
-                                                </td>
-                                            </tr>
-                                        </tbody>
-                                    </table>
-                                </div>
-                                
-                                <!-- Pagination -->
-                                <div class="mt-4 flex justify-center space-x-1" v-if="movements.links.length > 3">
-                                     <template v-for="(link, key) in movements.links" :key="key">
-                                        <div v-if="link.url === null" class="px-3 py-1 border rounded text-sm text-gray-400 mb-1" v-html="link.label" />
-                                        <Link v-else :href="link.url" class="px-3 py-1 border rounded text-sm hover:bg-gray-100 mb-1" :class="{ 'bg-blue-600 text-white': link.active }" v-html="link.label" />
-                                    </template>
-                                </div>
-                            </div>
-                        </div>
+                        <MovementTable
+                            v-else-if="viewMode === 'movements'"
+                            :movements="movements"
+                        />
 
                     </div>
                 </div>
@@ -448,14 +352,7 @@ const closeModal = () => {
         </div>
 
         <Modal :show="showModal" @close="closeModal">
-             <!-- Modal Content Unchanged -->
-             <div class="p-6">
-                <!-- ... (Modal content for viewing file details) ... -->
-                <!-- Copying existing modal content structure roughly to ensure it works, 
-                     but since use replace_file_content I need to be careful not to delete it unless I include it.
-                     Wait, I am replacing the whole template. I should keep the modal content.
-                     I will copy the Modal content from the previous `view_file` output.
-                -->
+            <div class="p-6">
                 <div class="flex justify-between items-start mb-4">
                     <div>
                         <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100">Detalle de Movimientos</h2>

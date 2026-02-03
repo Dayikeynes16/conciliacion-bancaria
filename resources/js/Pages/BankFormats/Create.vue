@@ -5,6 +5,7 @@ import { ref, computed } from "vue";
 import PrimaryButton from "@/Components/PrimaryButton.vue";
 import SecondaryButton from "@/Components/SecondaryButton.vue";
 import axios from "axios";
+import { trans } from "laravel-vue-i18n";
 
 const props = defineProps({
     format: Object,
@@ -69,7 +70,7 @@ const uploadPreview = async () => {
         rows.value = response.data.rows;
     } catch (error) {
         console.error("Preview failed", error);
-        alert("Error reading file");
+        alert(trans("Error reading file"));
     } finally {
         isPreviewing.value = false;
     }
@@ -116,7 +117,7 @@ const setStartRow = (rowIndex) => {
 };
 
 const saveFormat = () => {
-    if (!form.name) return alert("Please enter a name");
+    if (!form.name) return alert(trans("Please enter a name"));
     
     // Only require mapping if we are NOT in simple edit mode OR if rows are present (meaning re-mapping)
     // If Editing and NO rows loaded, we preserve existing mapping unless user uploaded a file.
@@ -126,7 +127,7 @@ const saveFormat = () => {
     
     if (isRemapping) {
          if (!columnMappings.value.fecha || !columnMappings.value.descripcion || !columnMappings.value.monto) {
-            return alert("Please map Date, Description and Amount columns");
+            return alert(trans("Please map Date, Description and Amount columns"));
         }
         form.date_column = columnMappings.value.fecha;
         form.description_column = columnMappings.value.descripcion;
@@ -140,7 +141,7 @@ const saveFormat = () => {
             onSuccess: () => router.visit(route('bank-formats.index')),
         });
     } else {
-        if (!isRemapping) return alert("Please upload a file to map columns."); // Creation requires mapping
+        if (!isRemapping) return alert(trans("Please upload a file to map columns.")); // Creation requires mapping
         form.post(route('bank-formats.store'), {
             onSuccess: () => router.visit(route('bank-formats.index')),
         });
@@ -160,11 +161,11 @@ const getTypeColor = (type) => {
 
 const getTypeLabel = (type) => {
      switch (type) {
-        case 'fecha': return 'Fecha';
-        case 'descripcion': return 'Descripción';
-        case 'monto': return 'Monto';
-        case 'referencia': return 'Referencia';
-        case 'tipo': return 'Tipo';
+        case 'fecha': return trans('Fecha');
+        case 'descripcion': return trans('Descripción');
+        case 'monto': return trans('Monto');
+        case 'referencia': return trans('Referencia');
+        case 'tipo': return trans('Tipo');
         default: return '';
     }
 }
@@ -176,7 +177,7 @@ const getTypeLabel = (type) => {
     <AuthenticatedLayout>
         <template #header>
             <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
-                {{ isEditing ? 'Editar Formato Bancario' : 'Crear Formato Bancario' }}
+                {{ isEditing ? $t('Editar Formato Bancario') : $t('Crear Formato Bancario') }}
             </h2>
         </template>
 
@@ -187,34 +188,34 @@ const getTypeLabel = (type) => {
                         
                         <!-- Step 1: Upload (Only show if creating OR explicit re-upload needed) -->
                         <div v-if="rows.length === 0 && !isEditing" class="flex flex-col items-center justify-center p-12 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50 dark:bg-gray-700/50 dark:border-gray-600">
-                            <h3 class="text-lg font-medium mb-4">Sube un Estado de Cuenta de ejemplo (Excel/CSV)</h3>
+                            <h3 class="text-lg font-medium mb-4">{{ $t('Sube un Estado de Cuenta de ejemplo (Excel/CSV)') }}</h3>
                             <p class="text-sm text-gray-500 mb-6 text-center max-w-md">
-                                Usaremos este archivo para previsualizar los datos y ayudarte a identificar qué columna corresponde a la fecha, monto y descripción.
+                                {{ $t('Usaremos este archivo para previsualizar los datos y ayudarte a identificar qué columna corresponde a la fecha, monto y descripción.') }}
                             </p>
                             
                             <label class="cursor-pointer">
-                                <span class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition">Seleccionar Archivo</span>
+                                <span class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition">{{ $t('Seleccionar Archivo') }}</span>
                                 <input type="file" ref="fileInput" class="hidden" accept=".xlsx,.xls,.csv" @change="handleFileChange" />
                             </label>
                             
-                            <p v-if="isPreviewing" class="mt-4 text-blue-600">Leyendo archivo...</p>
+                            <p v-if="isPreviewing" class="mt-4 text-blue-600">{{ $t('Leyendo archivo...') }}</p>
                         </div>
 
                         <!-- Editor (Show if rows loaded OR if Editing) -->
                         <div v-else>
                             <div class="mb-6">
                                 <h3 class="text-lg font-bold mb-4 border-b pb-2 dark:border-gray-700">
-                                    {{ isEditing ? 'Editar Formato' : 'Configurar Formato' }}
+                                    {{ isEditing ? $t('Editar Formato') : $t('Configurar Formato') }}
                                 </h3>
                                 
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nombre del Banco</label>
+                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{{ $t('Nombre del Banco') }}</label>
                                         <input v-model="form.name" type="text" placeholder="Ej. Santander Empresarial" class="block w-full rounded-md border-gray-300 dark:bg-gray-900 dark:border-gray-700 dark:text-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" />
                                     </div>
 
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Color Identificador</label>
+                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{{ $t('Color Identificador') }}</label>
                                         <div class="flex space-x-2">
                                             <button 
                                                 v-for="color in availableColors" 
@@ -235,15 +236,15 @@ const getTypeLabel = (type) => {
                                          <div>
                                             <p class="text-sm font-medium text-gray-900 dark:text-gray-200">Configuración Actual:</p>
                                             <ul class="text-xs text-gray-500 dark:text-gray-400 mt-1 grid grid-cols-2 gap-x-4 gap-y-1">
-                                                <li>Fecha: <span class="font-mono text-gray-700 dark:text-gray-300">{{ form.date_column }}</span></li>
-                                                <li>Monto: <span class="font-mono text-gray-700 dark:text-gray-300">{{ form.amount_column }}</span></li>
-                                                <li>Descripción: <span class="font-mono text-gray-700 dark:text-gray-300">{{ form.description_column }}</span></li>
-                                                <li>Fila Inicio: <span class="font-mono text-gray-700 dark:text-gray-300">{{ form.start_row }}</span></li>
+                                                <li>{{ $t('Fecha') }}: <span class="font-mono text-gray-700 dark:text-gray-300">{{ form.date_column }}</span></li>
+                                                <li>{{ $t('Monto') }}: <span class="font-mono text-gray-700 dark:text-gray-300">{{ form.amount_column }}</span></li>
+                                                <li>{{ $t('Descripción') }}: <span class="font-mono text-gray-700 dark:text-gray-300">{{ form.description_column }}</span></li>
+                                                <li>{{ $t('Fila Inicio') }}: <span class="font-mono text-gray-700 dark:text-gray-300">{{ form.start_row }}</span></li>
                                             </ul>
                                          </div>
                                          <div>
                                              <label class="cursor-pointer">
-                                                <span class="text-sm text-blue-600 hover:text-blue-500 underline font-medium">Subir archivo para re-mapear</span>
+                                                <span class="text-sm text-blue-600 hover:text-blue-500 underline font-medium">{{ $t('Subir archivo para re-mapear') }}</span>
                                                 <input type="file" ref="fileInput" class="hidden" accept=".xlsx,.xls,.csv" @change="handleFileChange" />
                                             </label>
                                          </div>
@@ -251,10 +252,10 @@ const getTypeLabel = (type) => {
                                 </div>
 
                                 <div class="flex justify-end space-x-2 mt-4 pt-4 border-t dark:border-gray-700">
-                                    <SecondaryButton v-if="!isEditing" @click="rows = []">Subir otro archivo</SecondaryButton>
-                                    <SecondaryButton v-if="isEditing" @click="router.visit(route('bank-formats.index'))">Cancelar</SecondaryButton>
+                                    <SecondaryButton v-if="!isEditing" @click="rows = []">{{ $t('Subir otro archivo') }}</SecondaryButton>
+                                    <SecondaryButton v-if="isEditing" @click="router.visit(route('bank-formats.index'))">{{ $t('Cancelar') }}</SecondaryButton>
                                     <PrimaryButton @click="saveFormat" :disabled="form.processing">
-                                        {{ isEditing ? 'Actualizar Formato' : 'Guardar Formato' }}
+                                        {{ isEditing ? $t('Actualizar Formato') : $t('Guardar Formato') }}
                                     </PrimaryButton>
                                 </div>
                             </div>
@@ -262,20 +263,19 @@ const getTypeLabel = (type) => {
                             <!-- Visual Table (Only if rows exist) -->
                             <div v-if="rows.length > 0">
                                 <div class="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-sm text-blue-800 dark:text-blue-300">
-                                    <p class="font-bold">Instrucciones:</p>
+                                    <p class="font-bold">{{ $t('Instrucciones:') }}</p>
                                     <ul class="list-disc ml-5 mt-1 space-y-1">
-                                        <li>Haz clic en los <strong>encabezados de letra (A, B, C...)</strong> para asignar columnas a Fecha, Descripción y Monto.</li>
-                                        <li>Haz clic en un <strong>número de fila</strong> para indicar dónde comienzan los datos reales (Fila Inicial).</li>
+                                        <li>{{ $t('Haz clic en los encabezados de letra (A, B, C...) para asignar columnas a Fecha, Descripción y Monto.') }}</li>
+                                        <li>{{ $t('Haz clic en un número de fila para indicar dónde comienzan los datos reales (Fila Inicial).') }}</li>
                                     </ul>
                                 </div>
 
-                                <!-- Legend -->
                                 <div class="flex space-x-4 mb-4 text-sm">
-                                    <div class="flex items-center"><span class="w-3 h-3 rounded-full bg-green-500 mr-1"></span> Fecha</div>
-                                    <div class="flex items-center"><span class="w-3 h-3 rounded-full bg-blue-500 mr-1"></span> Descripción</div>
-                                    <div class="flex items-center"><span class="w-3 h-3 rounded-full bg-purple-500 mr-1"></span> Monto</div>
-                                    <div class="flex items-center"><span class="w-3 h-3 rounded-full bg-yellow-500 mr-1"></span> Tipo (Opc)</div>
-                                    <div class="flex items-center"><span class="w-3 h-3 rounded-full bg-gray-500 mr-1"></span> Ref (Opc)</div>
+                                    <div class="flex items-center"><span class="w-3 h-3 rounded-full bg-green-500 mr-1"></span> {{ $t('Fecha') }}</div>
+                                    <div class="flex items-center"><span class="w-3 h-3 rounded-full bg-blue-500 mr-1"></span> {{ $t('Descripción') }}</div>
+                                    <div class="flex items-center"><span class="w-3 h-3 rounded-full bg-purple-500 mr-1"></span> {{ $t('Monto') }}</div>
+                                    <div class="flex items-center"><span class="w-3 h-3 rounded-full bg-yellow-500 mr-1"></span> {{ $t('Tipo (Opc)') }}</div>
+                                    <div class="flex items-center"><span class="w-3 h-3 rounded-full bg-gray-500 mr-1"></span> {{ $t('Ref (Opc)') }}</div>
                                 </div>
     
                                 <div class="overflow-x-auto border rounded-lg dark:border-gray-700">
@@ -300,12 +300,12 @@ const getTypeLabel = (type) => {
                                                     
                                                     <!-- Dropdown for selecting type -->
                                                     <div class="opacity-0 group-hover:opacity-100 absolute top-full left-0 z-20 w-32 bg-white dark:bg-gray-700 shadow-lg rounded-b-md border dark:border-gray-600 flex flex-col p-1">
-                                                        <button @click="selectColumn(colIndex, 'fecha')" class="text-left px-2 py-1 text-xs hover:bg-green-100 dark:hover:bg-green-900 rounded text-green-700 dark:text-green-300 font-medium">Fecha</button>
-                                                        <button @click="selectColumn(colIndex, 'descripcion')" class="text-left px-2 py-1 text-xs hover:bg-blue-100 dark:hover:bg-blue-900 rounded text-blue-700 dark:text-blue-300 font-medium">Descripción</button>
-                                                        <button @click="selectColumn(colIndex, 'monto')" class="text-left px-2 py-1 text-xs hover:bg-purple-100 dark:hover:bg-purple-900 rounded text-purple-700 dark:text-purple-300 font-medium">Monto</button>
+                                                        <button @click="selectColumn(colIndex, 'fecha')" class="text-left px-2 py-1 text-xs hover:bg-green-100 dark:hover:bg-green-900 rounded text-green-700 dark:text-green-300 font-medium">{{ $t('Fecha') }}</button>
+                                                        <button @click="selectColumn(colIndex, 'descripcion')" class="text-left px-2 py-1 text-xs hover:bg-blue-100 dark:hover:bg-blue-900 rounded text-blue-700 dark:text-blue-300 font-medium">{{ $t('Descripción') }}</button>
+                                                        <button @click="selectColumn(colIndex, 'monto')" class="text-left px-2 py-1 text-xs hover:bg-purple-100 dark:hover:bg-purple-900 rounded text-purple-700 dark:text-purple-300 font-medium">{{ $t('Monto') }}</button>
                                                         <div class="border-t my-1 dark:border-gray-600"></div>
-                                                        <button @click="selectColumn(colIndex, 'referencia')" class="text-left px-2 py-1 text-xs hover:bg-gray-100 dark:hover:bg-gray-600 rounded">Referencia</button>
-                                                        <button @click="selectColumn(colIndex, 'tipo')" class="text-left px-2 py-1 text-xs hover:bg-yellow-100 dark:hover:bg-yellow-900 rounded">Tipo</button>
+                                                        <button @click="selectColumn(colIndex, 'referencia')" class="text-left px-2 py-1 text-xs hover:bg-gray-100 dark:hover:bg-gray-600 rounded">{{ $t('Referencia') }}</button>
+                                                        <button @click="selectColumn(colIndex, 'tipo')" class="text-left px-2 py-1 text-xs hover:bg-yellow-100 dark:hover:bg-yellow-900 rounded">{{ $t('Tipo') }}</button>
                                                     </div>
                                                 </th>
                                             </tr>
@@ -321,13 +321,17 @@ const getTypeLabel = (type) => {
                                             >
                                                 <td class="px-3 py-2 whitespace-nowrap text-xs text-center font-medium text-gray-500 border-r dark:border-gray-700 sticky left-0 bg-white dark:bg-gray-800">
                                                     {{ rowIndex + 1 }}
-                                                    <span v-if="(rowIndex + 1) === form.start_row" class="block text-[9px] text-green-600 font-bold">INICIO</span>
+                                                    <span v-if="(rowIndex + 1) === form.start_row" class="block text-[9px] text-green-600 font-bold">{{ $t('INICIO') }}</span>
                                                 </td>
                                                 <td 
                                                     v-for="(cell, colIndex) in row" 
                                                     :key="colIndex"
                                                     class="px-3 py-2 whitespace-nowrap text-xs text-gray-700 dark:text-gray-300 border-l dark:border-gray-700"
-                                                    :class="{'bg-green-50 dark:bg-green-900/20': isColumnSelected(colIndex) && getColumnType(colIndex) === 'fecha', 'bg-purple-50 dark:bg-purple-900/20': isColumnSelected(colIndex) && getColumnType(colIndex) === 'monto'}"
+                                                    :class="{
+                                                        'bg-green-50 dark:bg-green-900/20': isColumnSelected(colIndex) && getColumnType(colIndex) === 'fecha',
+                                                        'bg-blue-50 dark:bg-blue-900/20': isColumnSelected(colIndex) && getColumnType(colIndex) === 'descripcion',
+                                                        'bg-purple-50 dark:bg-purple-900/20': isColumnSelected(colIndex) && getColumnType(colIndex) === 'monto'
+                                                    }"
                                                 >
                                                     {{ cell }}
                                                 </td>
