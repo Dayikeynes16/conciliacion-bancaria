@@ -15,6 +15,12 @@ abstract class AbstractBankParser implements StatementParser
 
     public function parse(string $filePath): array
     {
+        // STABILITY: Limit file size to 10MB to prevent memory exhaustion
+        $maxSize = 10 * 1024 * 1024;
+        if (filesize($filePath) > $maxSize) {
+            throw new \Exception('El archivo es demasiado grande (Máx 10MB).');
+        }
+
         // Load the file using Maatwebsite Excel
         // We assume the first sheet contains the data
         $rows = Excel::toCollection(new class implements \Maatwebsite\Excel\Concerns\ToCollection

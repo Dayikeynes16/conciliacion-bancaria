@@ -194,5 +194,21 @@
     "conciliaciones": "reconciliations",
     "pagos": "payments",
     "No hay facturas pendientes este mes.": "No pending invoices this month.",
-    "No hay pagos por conciliar este mes.": "No payments to reconcile this month."
+    "No hay pagos por conciliar este mes.": "No payments to reconcile this month.",
+    "Información del Perfil": "Profile Information",
+    "Actualiza la información de tu cuenta y dirección de correo.": "Update your account's profile information and email address.",
+    "Actualizar Contraseña": "Update Password",
+    "Asegúrate de que tu cuenta esté usando una contraseña larga y aleatoria para mantenerse segura.": "Ensure your account is using a long, random password to stay secure.",
+    "Eliminar Cuenta": "Delete Account",
+    "Una vez que tu cuenta sea eliminada, todos sus recursos y datos serán eliminados permanentemente. Antes de eliminar tu cuenta, por favor descarga cualquier dato o información que desees conservar.": "Once your account is deleted, all of its resources and data will be permanently deleted. Before deleting your account, please download any data or information that you wish to retain.",
+    "Tu dirección de correo no está verificada.": "Your email address is unverified.",
+    "Haz clic aquí para reenviar el correo de verificación.": "Click here to re-send the verification email.",
+    "Un nuevo enlace de verificación ha sido enviado a tu dirección de correo.": "A new verification link has been sent to your email address.",
+    "Guardado.": "Saved.",
+    "Contraseña Actual": "Current Password",
+    "Nueva Contraseña": "New Password",
+    "Confirmar Contraseña": "Confirm Password",
+    "¿Estás seguro de que deseas eliminar tu cuenta?": "Are you sure you want to delete your account?",
+    "Una vez que tu cuenta sea eliminada, todos sus recursos y datos serán eliminados permanentemente. Por favor ingresa tu contraseña para confirmar que deseas eliminar tu cuenta permanentemente.": "Once your account is deleted, all of its resources and data will be permanently deleted. Please enter your password to confirm you would like to permanently delete your account.",
+    "Contraseña": "Password"
 }

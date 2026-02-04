@@ -23,12 +23,12 @@ class FacturaController extends Controller
             ->where('archivos.team_id', $request->user()->current_team_id)
             ->with(['factura' => function ($q) {
                 $q->withCount('conciliaciones')
-                  ->with('conciliaciones.user');
+                    ->with('conciliaciones.user');
             }])
             ->when($search, function ($query, $search) {
                 return $query->where(function ($q) use ($search) {
-                    $q->where('archivos.nombre_original', 'like', "%{$search}%")
-                        ->orWhere('archivos.hash', 'like', "%{$search}%")
+                    $q->where('archivos.original_name', 'like', "%{$search}%")
+                        ->orWhere('archivos.checksum', 'like', "%{$search}%")
                         ->orWhere('facturas.nombre', 'like', "%{$search}%")
                         ->orWhere('facturas.rfc', 'like', "%{$search}%")
                         ->orWhere('facturas.monto', 'like', "%{$search}%");
@@ -56,7 +56,10 @@ class FacturaController extends Controller
             $query->orderBy($sortField, $direction);
         }
 
-        $files = $query->paginate(10)->withQueryString();
+        $perPageParam = $request->input('per_page', 10);
+        $perPage = ($perPageParam === 'all') ? 10000 : $perPageParam;
+
+        $files = $query->paginate($perPage)->withQueryString();
 
         return Inertia::render('Invoices/Index', [
             'files' => $files,
@@ -67,6 +70,7 @@ class FacturaController extends Controller
                 'date' => $date,
                 'sort' => $sort,
                 'direction' => $direction,
+                'per_page' => $perPageParam,
             ],
         ]);
     }

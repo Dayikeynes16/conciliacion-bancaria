@@ -57,6 +57,11 @@ class TeamMemberController extends Controller
             return back()->withErrors(['email' => 'El usuario ya pertenece al equipo.']);
         }
 
+        // Check if email belongs to the owner
+        if ($team->owner->email === $email) {
+            return back()->withErrors(['email' => 'El propietario del equipo no necesita ser invitado.']);
+        }
+
         // Check if pending invitation exists
         if ($team->invitations()->where('email', $email)->exists()) {
             return back()->withErrors(['email' => 'Ya existe una invitación pendiente para este correo.']);

@@ -9,7 +9,16 @@ class CfdiParserService
 {
     public function parse(string $content): array
     {
-        $xml = new SimpleXMLElement($content);
+        // Harden against XXE (libxml 2.9+ disables it by default, but explicit is better)
+        // LIBXML_NONET prevents network access
+        // LIBXML_NOENT is usually for entity substitution, but can be risky if misconfigured.
+        // In modern PHP, SimpleXMLElement is relatively safe if we don't enable LIBXML_DTDLOAD or LIBXML_NOENT.
+        try {
+            $xml = new SimpleXMLElement($content, LIBXML_NONET | LIBXML_NOWARNING);
+        } catch (\Exception $e) {
+            throw new \Exception('Invalid XML format or security violation: '.$e->getMessage());
+        }
+
         $ns = $xml->getNamespaces(true);
 
         // Ensure namespaces are registered

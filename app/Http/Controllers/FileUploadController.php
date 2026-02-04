@@ -152,10 +152,17 @@ class FileUploadController extends Controller
 
                     $banco = Banco::firstOrCreate(['codigo' => $bankCode], ['nombre' => $bankName]);
 
+                    // Determine format ID if numeric
+                    $bankFormatId = null;
+                    if (is_numeric($bankCode)) {
+                        $bankFormatId = (int) $bankCode;
+                    }
+
                     // Create Archivo Record
                     $archivo = Archivo::create([
                         'team_id' => $teamId,
                         'banco_id' => $banco->id,
+                        'bank_format_id' => $bankFormatId,
                         'path' => $path,
                         'original_name' => $file->getClientOriginalName(),
                         'mime' => $file->getClientMimeType(),

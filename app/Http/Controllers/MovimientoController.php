@@ -21,7 +21,7 @@ class MovimientoController extends Controller
                         $q->whereDate('fecha', $date);
                     } elseif ($month && $year) {
                         $q->whereMonth('fecha', $month)
-                          ->whereYear('fecha', $year);
+                            ->whereYear('fecha', $year);
                     }
                 })->orWhereDoesntHave('movimientos');
             })
@@ -52,7 +52,7 @@ class MovimientoController extends Controller
             ->when($date, function ($q) use ($date) {
                 return $q->whereDate('created_at', $date);
             })
-             ->with(['banco'])
+            ->with(['banco', 'bankFormat']) // Eager load format
             ->withCount('movimientos')
             ->latest()
             ->get();
@@ -78,8 +78,8 @@ class MovimientoController extends Controller
         }
 
         // Fallback to month/year if no specific date range
-        if (!$request->filled('date_from') && !$request->filled('date_to')) {
-             if ($date) {
+        if (! $request->filled('date_from') && ! $request->filled('date_to')) {
+            if ($date) {
                 $movementsQuery->whereDate('fecha', $date);
             } elseif ($month && $year) {
                 $movementsQuery->whereMonth('fecha', $month)
@@ -87,10 +87,13 @@ class MovimientoController extends Controller
             }
         }
 
+        $perPageParam = $request->input('per_page', 50); // Default to 50 for Movements as it was hardcoded
+        $perPage = ($perPageParam === 'all') ? 10000 : $perPageParam;
+
         $movements = $movementsQuery->with(['archivo.banco'])
             ->withCount('conciliaciones')
             ->orderBy('fecha', 'desc')
-            ->paginate(50)
+            ->paginate($perPage)
             ->withQueryString();
 
         return Inertia::render('Movements/Index', [
@@ -104,6 +107,7 @@ class MovimientoController extends Controller
                 'date_to' => $request->input('date_to'),
                 'amount_min' => $request->input('amount_min'),
                 'amount_max' => $request->input('amount_max'),
+                'per_page' => $perPageParam,
             ],
         ]);
     }

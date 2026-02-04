@@ -1,12 +1,13 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, watch, onMounted } from "vue";
 import ApplicationLogo from "@/Components/ApplicationLogo.vue";
 import Dropdown from "@/Components/Dropdown.vue";
 import DropdownLink from "@/Components/DropdownLink.vue";
 import SidebarLink from "@/Components/SidebarLink.vue";
 import LanguageSwitcher from "@/Components/LanguageSwitcher.vue";
-import { Link, router } from "@inertiajs/vue3";
+import { Link, router, usePage } from "@inertiajs/vue3";
 
+const page = usePage();
 const showingNavigationDropdown = ref(false);
 
 const updateDateFilter = (key: 'month' | 'year', value: string) => {
@@ -44,6 +45,42 @@ if (typeof window !== 'undefined') {
         document.documentElement.classList.remove('dark');
     }
 }
+
+// Auto-dismiss functionality
+// Auto-dismiss functionality
+const autoDismiss = () => {
+    // Dismiss Success
+    if (page.props.flash.success) {
+        setTimeout(() => {
+            page.props.flash.success = undefined;
+        }, 3000);
+    }
+    // Dismiss Error
+    if (page.props.flash.error) {
+        setTimeout(() => {
+            page.props.flash.error = undefined;
+        }, 3000);
+    }
+    // Dismiss Toasts (if implemented as array)
+    if (page.props.flash.toasts && page.props.flash.toasts.length > 0) {
+        page.props.flash.toasts.forEach((toast: any, index: number) => {
+             setTimeout(() => {
+                const idx = page.props.flash.toasts?.indexOf(toast) ?? -1;
+                if (idx > -1) {
+                    page.props.flash.toasts?.splice(idx, 1);
+                }
+            }, 3000 + (index * 500)); // Stagger slightly
+        });
+    }
+};
+
+watch(() => page.props.flash, () => {
+    autoDismiss();
+}, { deep: true });
+
+onMounted(() => {
+    autoDismiss();
+});
 
 </script>
 

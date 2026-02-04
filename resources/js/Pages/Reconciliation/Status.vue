@@ -18,25 +18,41 @@ const props = defineProps<{
     totalConciliatedMovements: number;
     filters?: {
         search?: string;
+        invoice_sort?: string;
+        invoice_direction?: string;
+        movement_sort?: string;
+        movement_direction?: string;
     };
 }>();
 
 const activeTab = ref("pending"); // pending | conciliated
 const search = ref(props.filters?.search || "");
 
-watch(
-    search,
-    debounce((value) => {
-        router.get(
-            route("reconciliation.status"),
-            { search: value },
-            {
-                preserveState: true,
-                replace: true,
-            },
-        );
-    }, 300),
-);
+// Independent Sort States
+const invoiceSort = ref(props.filters?.invoice_sort || "date");
+const invoiceDirection = ref(props.filters?.invoice_direction || "desc");
+const movementSort = ref(props.filters?.movement_sort || "date");
+const movementDirection = ref(props.filters?.movement_direction || "desc");
+
+const updateParams = () => {
+    router.get(
+        route("reconciliation.status"),
+        { 
+            search: search.value,
+            invoice_sort: invoiceSort.value,
+            invoice_direction: invoiceDirection.value,
+            movement_sort: movementSort.value,
+            movement_direction: movementDirection.value
+        },
+        {
+            preserveState: true,
+            replace: true,
+        },
+    );
+};
+
+watch(search, debounce(updateParams, 300));
+watch([invoiceSort, invoiceDirection, movementSort, movementDirection], updateParams);
 </script>
 
 <template>
@@ -49,7 +65,7 @@ watch(
             </h2>
         </template>
 
-        <div class="py-12">
+        <div class="py-6">
             <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
                 <!-- Top Bar: Tabs & Search -->
                 <div class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
@@ -57,7 +73,7 @@ watch(
                     <StatusTabs 
                         v-model="activeTab"
                         :pending-count="pendingInvoices.length + pendingMovements.length"
-                        :conciliated-count="0" 
+                        :conciliated-count="conciliatedInvoices.length + conciliatedMovements.length" 
                     />
 
                     <!-- Search -->
@@ -78,7 +94,6 @@ watch(
                     </div>
                 </div>
 
-                <!-- Global Totals Summary Cards -->
                 <StatusSummary
                     :active-tab="activeTab"
                     :total-pending-invoices="totalPendingInvoices"
@@ -87,13 +102,23 @@ watch(
                     :total-conciliated-movements="totalConciliatedMovements"
                 />
 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
                     <!-- Invoices Column -->
                     <TransactionList
                         title="Facturas"
                         type="invoice"
                         :items="activeTab === 'pending' ? pendingInvoices : conciliatedInvoices"
                         :is-conciliated="activeTab === 'conciliated'"
+                        :current-sort="invoiceSort"
+                        :current-direction="invoiceDirection"
+                        @toggle-sort="(s) => {
+                            if (invoiceSort === s) {
+                                invoiceDirection = invoiceDirection === 'asc' ? 'desc' : 'asc';
+                            } else {
+                                invoiceSort = s;
+                                invoiceDirection = 'desc';
+                            }
+                        }"
                     />
 
                     <!-- Movements Column -->
@@ -102,6 +127,16 @@ watch(
                         type="movement"
                         :items="activeTab === 'pending' ? pendingMovements : conciliatedMovements"
                         :is-conciliated="activeTab === 'conciliated'"
+                        :current-sort="movementSort"
+                        :current-direction="movementDirection"
+                        @toggle-sort="(s) => {
+                             if (movementSort === s) {
+                                movementDirection = movementDirection === 'asc' ? 'desc' : 'asc';
+                            } else {
+                                movementSort = s;
+                                movementDirection = 'desc';
+                            }
+                        }"
                     />
                 </div>
             </div>

@@ -13,6 +13,7 @@ const props = defineProps<{
         pendingMovementsAmount: number;
         conciliatedThisMonth: number;
         conciliatedLastMonth: number;
+        invoicesLastMonth: number;
         paymentsLastMonth: number;
     };
     recentActivity: Array<{
@@ -149,6 +150,7 @@ const formatCurrency = (amount: number) => {
                         <div class="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
                              <p class="text-xs text-gray-500 dark:text-gray-400">
                                 {{ $t('Mes Anterior:') }}
+                                <span class="font-bold">{{ stats.invoicesLastMonth }}</span> {{ $t('facturas') }} /
                                 <span class="font-bold">{{ stats.conciliatedLastMonth }}</span> {{ $t('conciliaciones') }} /
                                 <span class="font-bold">{{ stats.paymentsLastMonth }}</span> {{ $t('pagos') }}
                             </p>

@@ -45,11 +45,13 @@ const props = defineProps<{
         date?: string;
         sort?: string;
         direction?: string;
+        per_page?: string | number;
     };
 }>();
 
 const sortColumn = ref(props.filters?.sort || "created_at");
 const sortDirection = ref(props.filters?.direction || "desc");
+const perPage = ref(props.filters?.per_page || 10);
 
 const updateParams = (filters: any) => {
     router.get(
@@ -59,6 +61,7 @@ const updateParams = (filters: any) => {
             date: filters.date,
             sort: sortColumn.value,
             direction: sortDirection.value,
+            per_page: perPage.value,
         },
         {
             preserveState: true,
@@ -74,27 +77,39 @@ const handleSort = (column: string) => {
         sortColumn.value = column;
         sortDirection.value = "desc";
     }
-    // Trigger update with current search/date values would be ideal, 
+    // Trigger update with current search/date values would be ideal,
     // but here we might need to access the child component state or keep state lifted.
-    // For simplicity, we just reload with current url params + new sort, 
-    // but the filters component handles the search/date state. 
+    // For simplicity, we just reload with current url params + new sort,
+    // but the filters component handles the search/date state.
     // To fix this properly, we should probably keep search/date state in parent like before
     // OR emit event from filters component on every change.
     // Let's rely on inertia existing params or props.
     // Actually, `updateParams` function above expects filters object.
-    
-    // Quick fix: we need current search/date. 
+
+    // Quick fix: we need current search/date.
     // In strict component design, parent should hold state.
     // Let's move state back to parent for filters to ensure sort works with current filters.
     // BUT I already extracted filters.
     // I will modify `updateParams` to use current props or local state if I sync it.
-    
+
     // Let's re-implement `updateParams` to merge.
     router.visit(route("invoices.index"), {
         data: {
             ...route().params, // Keep existing params
             sort: sortColumn.value,
             direction: sortDirection.value,
+        },
+        preserveState: true,
+        replace: true,
+    });
+};
+
+const handlePerPage = (newPerPage: string | number) => {
+    perPage.value = newPerPage;
+    router.visit(route("invoices.index"), {
+        data: {
+            ...route().params,
+            per_page: newPerPage,
         },
         preserveState: true,
         replace: true,
@@ -112,7 +127,7 @@ const batchForm = useForm({
 
 const toggleSelect = (id: number) => {
     if (selectedIds.value.includes(id)) {
-        selectedIds.value = selectedIds.value.filter(i => i !== id);
+        selectedIds.value = selectedIds.value.filter((i) => i !== id);
     } else {
         selectedIds.value.push(id);
     }
@@ -178,29 +193,62 @@ const formatCurrency = (amount: number) => {
 
     <AuthenticatedLayout>
         <template #header>
-            <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
-                {{ $t('Facturas') }}
+            <h2
+                class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight"
+            >
+                {{ $t("Facturas") }}
             </h2>
         </template>
 
         <div class="py-12">
             <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
-                <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg">
+                <div
+                    class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg"
+                >
                     <div class="p-6 text-gray-900 dark:text-gray-100">
-                        <div class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
+                        <div
+                            class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4"
+                        >
                             <div>
-                                <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100">
-                                    {{ $t('Facturas Cargadas') }}
+                                <h3
+                                    class="text-lg font-medium text-gray-900 dark:text-gray-100"
+                                >
+                                    {{ $t("Facturas Cargadas") }}
                                 </h3>
-                                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                                    <span class="font-semibold text-gray-700 dark:text-gray-200">
-                                        {{ $t('Total: :count facturas | Monto Total (Página): :amount', { count: String(files.total), amount: formatCurrency(files.data.reduce((sum, file) => sum + Number(file.factura?.monto || 0), 0)) }) }}
+                                <p
+                                    class="text-sm text-gray-500 dark:text-gray-400 mt-1"
+                                >
+                                    <span
+                                        class="font-semibold text-gray-700 dark:text-gray-200"
+                                    >
+                                        {{
+                                            $t(
+                                                "Total: :count facturas | Monto Total (Página): :amount",
+                                                {
+                                                    count: String(files.total),
+                                                    amount: formatCurrency(
+                                                        files.data.reduce(
+                                                            (sum, file) =>
+                                                                sum +
+                                                                Number(
+                                                                    file.factura
+                                                                        ?.monto ||
+                                                                        0,
+                                                                ),
+                                                            0,
+                                                        ),
+                                                    ),
+                                                },
+                                            )
+                                        }}
                                     </span>
                                 </p>
                             </div>
 
                             <!-- Actions -->
-                            <div class="flex items-center gap-4 w-full md:w-auto">
+                            <div
+                                class="flex items-center gap-4 w-full md:w-auto"
+                            >
                                 <Transition
                                     enter-active-class="transition ease-out duration-200"
                                     enter-from-class="opacity-0 scale-95"
@@ -214,11 +262,13 @@ const formatCurrency = (amount: number) => {
                                         @click="confirmBatchDeletion"
                                         class="inline-flex items-center px-4 py-2 bg-red-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-red-500 active:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transition ease-in-out duration-150"
                                     >
-                                        {{ $t('Eliminar') }} ({{ selectedIds.length }})
+                                        {{ $t("Eliminar") }} ({{
+                                            selectedIds.length
+                                        }})
                                     </button>
                                 </Transition>
 
-                                <InvoiceFilters 
+                                <InvoiceFilters
                                     :filters="filters"
                                     @update="updateParams"
                                 />
@@ -230,26 +280,32 @@ const formatCurrency = (amount: number) => {
                             :selected-ids="selectedIds"
                             :sort-column="sortColumn"
                             :sort-direction="sortDirection"
+                            :per-page="perPage"
                             @sort="handleSort"
                             @toggle-select="toggleSelect"
                             @toggle-all="toggleAll"
                             @delete="confirmFileDeletion"
+                            @update-per-page="handlePerPage"
                         />
                     </div>
                 </div>
             </div>
         </div>
-        
+
         <ConfirmationModal :show="confirmingFileDeletion" @close="closeModal">
-            <template #title> {{ $t('Eliminar Factura') }} </template>
+            <template #title> {{ $t("Eliminar Factura") }} </template>
 
             <template #content>
-                {{ $t('¿Estás seguro de que deseas eliminar esta factura? Esta acción eliminará el archivo y todos los registros asociados permanentemente.') }}
+                {{
+                    $t(
+                        "¿Estás seguro de que deseas eliminar esta factura? Esta acción eliminará el archivo y todos los registros asociados permanentemente.",
+                    )
+                }}
             </template>
 
             <template #footer>
                 <SecondaryButton @click="closeModal">
-                    {{ $t('Cancelar') }}
+                    {{ $t("Cancelar") }}
                 </SecondaryButton>
 
                 <PrimaryButton
@@ -258,21 +314,28 @@ const formatCurrency = (amount: number) => {
                     :disabled="form.processing"
                     @click="deleteFile"
                 >
-                    {{ $t('Eliminar') }}
+                    {{ $t("Eliminar") }}
                 </PrimaryButton>
             </template>
         </ConfirmationModal>
 
         <ConfirmationModal :show="confirmingBatchDeletion" @close="closeModal">
-            <template #title> {{ $t('Eliminar Facturas Seleccionadas') }} </template>
+            <template #title>
+                {{ $t("Eliminar Facturas Seleccionadas") }}
+            </template>
 
             <template #content>
-                {{ $t('¿Estás seguro de que deseas eliminar las :count facturas seleccionadas? Esta acción no se puede deshacer.', { count: String(selectedIds.length) }) }}
+                {{
+                    $t(
+                        "¿Estás seguro de que deseas eliminar las :count facturas seleccionadas? Esta acción no se puede deshacer.",
+                        { count: String(selectedIds.length) },
+                    )
+                }}
             </template>
 
             <template #footer>
                 <SecondaryButton @click="closeModal">
-                    {{ $t('Cancelar') }}
+                    {{ $t("Cancelar") }}
                 </SecondaryButton>
 
                 <PrimaryButton
@@ -281,7 +344,7 @@ const formatCurrency = (amount: number) => {
                     :disabled="batchForm.processing"
                     @click="deleteBatch"
                 >
-                    {{ $t('Eliminar Todo') }}
+                    {{ $t("Eliminar Todo") }}
                 </PrimaryButton>
             </template>
         </ConfirmationModal>
