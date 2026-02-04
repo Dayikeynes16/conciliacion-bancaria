@@ -144,4 +144,9 @@ class User extends Authenticatable
     {
         return $this->ownedTeams->merge($this->teams)->sortBy('name');
     }
+
+    public function sendPasswordResetNotification($token)
+    {
+        $this->notify(new \App\Notifications\ResetPasswordNotification($token));
+    }
 }

@@ -43,8 +43,11 @@ const props = defineProps<{
         date_to?: string;
         amount_min?: string;
         amount_max?: string;
+        per_page?: string | number;
     };
 }>();
+
+const perPage = ref(props.filters?.per_page || 50);
 
 const viewMode = ref("files"); // 'files' | 'movements'
 const showModal = ref(false);
@@ -67,8 +70,10 @@ const applyFilters = (filters: any) => {
             date_to: filters.date_to,
             amount_min: filters.amount_min,
             amount_max: filters.amount_max,
+
             month: props.filters?.month,
             year: props.filters?.year,
+            per_page: perPage.value,
         },
         {
             preserveState: true,
@@ -84,6 +89,17 @@ const clearFilters = () => {
         date_to: '',
         amount_min: '',
         amount_max: ''
+    });
+
+};
+
+const handlePerPage = (newPerPage: string | number) => {
+    perPage.value = newPerPage;
+    applyFilters({
+        date_from: props.filters?.date_from,
+        date_to: props.filters?.date_to,
+        amount_min: props.filters?.amount_min,
+        amount_max: props.filters?.amount_max,
     });
 };
 
@@ -345,6 +361,8 @@ const formatDateNoTime = (date?: string) => {
                         <MovementTable
                             v-else-if="viewMode === 'movements'"
                             :movements="movements"
+                            :per-page="perPage"
+                            @update-per-page="handlePerPage"
                         />
 
                     </div>

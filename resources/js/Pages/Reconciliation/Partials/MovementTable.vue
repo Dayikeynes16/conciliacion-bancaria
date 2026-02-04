@@ -17,7 +17,10 @@ defineProps<{
         }>;
         links: Array<any>;
     };
+    perPage: string | number;
 }>();
+
+const emit = defineEmits(["update-per-page"]);
 
 const formatDateNoTime = (date?: string) => {
     if (!date) return "N/A";
@@ -93,11 +96,27 @@ const formatCurrency = (amount: number) => {
             </div>
             
             <!-- Pagination -->
-            <div class="mt-4 flex justify-center space-x-1" v-if="movements.links.length > 3">
-                 <template v-for="(link, key) in movements.links" :key="key">
-                    <div v-if="link.url === null" class="px-3 py-1 border rounded text-sm text-gray-400 mb-1" v-html="link.label" />
-                    <Link v-else :href="link.url" class="px-3 py-1 border rounded text-sm hover:bg-gray-100 mb-1" :class="{ 'bg-blue-600 text-white': link.active }" v-html="link.label" />
-                </template>
+            <div class="mt-4 flex flex-col md:flex-row justify-between items-center gap-4">
+                <div v-if="movements.links.length > 3" class="flex flex-wrap -mb-1">
+                    <template v-for="(link, key) in movements.links" :key="key">
+                        <div v-if="link.url === null" class="mr-1 mb-1 px-4 py-3 text-sm leading-4 text-gray-400 border rounded" v-html="link.label" />
+                        <Link v-else class="mr-1 mb-1 px-4 py-3 text-sm leading-4 border rounded hover:bg-white focus:border-indigo-500 focus:text-indigo-500 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700" :class="{ 'bg-blue-700 text-white dark:bg-blue-600': link.active }" :href="link.url" v-html="link.label" />
+                    </template>
+                </div>
+                
+                <div class="flex items-center gap-2">
+                    <label class="text-sm text-gray-500 dark:text-gray-400">{{ $t('Mostrar:') }}</label>
+                    <select 
+                        :value="perPage" 
+                        @change="emit('update-per-page', ($event.target as HTMLSelectElement).value)"
+                        class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+                    >
+                        <option value="10">10</option>
+                        <option value="25">25</option>
+                        <option value="50">50</option>
+                        <option value="all">{{ $t('Todos') }}</option>
+                    </select>
+                </div>
             </div>
         </div>
     </div>

@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class BankFormat extends Model
 {
+    use \App\Models\Traits\TeamOwned;
     use \Illuminate\Database\Eloquent\Factories\HasFactory;
 
     protected $fillable = [
@@ -15,6 +16,8 @@ class BankFormat extends Model
         'date_column',
         'description_column',
         'amount_column',
+        'debit_column',
+        'credit_column',
         'reference_column',
         'type_column',
         'color',

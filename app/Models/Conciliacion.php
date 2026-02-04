@@ -6,9 +6,10 @@ use Illuminate\Database\Eloquent\Model;
 
 class Conciliacion extends Model
 {
-    // use \App\Models\Traits\UserOwned; // Removed to allow Team-wide visibility
+    use \App\Models\Traits\TeamOwned;
 
     protected $fillable = [
+        'team_id',
         'group_id',
         'user_id',
         'factura_id',

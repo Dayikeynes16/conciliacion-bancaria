@@ -7,7 +7,11 @@ const props = defineProps<{
     items: Array<any>;
     type: 'invoice' | 'movement'; // invoice or movement
     isConciliated: boolean;
+    currentSort?: string;
+    currentDirection?: string;
 }>();
+
+const emit = defineEmits(['toggleSort']);
 
 const localizedTitle = computed(() => {
     if (props.type === 'invoice') {
@@ -44,19 +48,36 @@ const formatDate = (dateString: string) => {
         <div
             class="p-6 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-700"
         >
-            <h3 class="text-lg font-bold text-gray-700 dark:text-gray-200">
-                {{ localizedTitle }}
-            </h3>
-            <span
-                :class="[
-                    'py-1 px-3 rounded-full text-xs font-bold',
-                    type === 'invoice' 
-                        ? 'bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-200' 
-                        : 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-200'
-                ]"
+            <div class="flex items-center gap-4">
+                <h3 class="text-lg font-bold text-gray-700 dark:text-gray-200">
+                    {{ localizedTitle }}
+                </h3>
+                <span
+                    :class="[
+                        'py-1 px-3 rounded-full text-xs font-bold',
+                        type === 'invoice' 
+                            ? 'bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-200' 
+                            : 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-200'
+                    ]"
+                >
+                    {{ items.length }} items
+                </span>
+            </div>
+
+            <!-- Sort Button -->
+            <button
+                @click="emit('toggleSort', 'amount')"
+                class="text-xs font-bold text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 uppercase flex items-center gap-1 transition-colors"
             >
-                {{ items.length }} items
-            </span>
+                ORDENAR MONTO
+                <svg v-if="currentSort === 'amount'" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                     <path v-if="currentDirection === 'asc'" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12"></path>
+                     <path v-else stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4h13M3 8h9m-9 4h5m4 0v12m0 0l-4-4m4 4l4-4"></path>
+                </svg>
+                <svg v-else class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"></path>
+                </svg>
+            </button>
         </div>
         <div class="p-6 overflow-y-auto flex-1 bg-gray-50/50">
             <div class="space-y-3">

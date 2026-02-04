@@ -7,6 +7,7 @@ import SecondaryButton from "@/Components/SecondaryButton.vue";
 import WorkbenchSelectionSummary from "./Partials/WorkbenchSelectionSummary.vue";
 import WorkbenchColumns from "./Partials/WorkbenchColumns.vue";
 import ReconciliationModal from "./Partials/ReconciliationModal.vue";
+import DatePicker from "@/Components/DatePicker.vue";
 import { wTrans } from "laravel-vue-i18n";
 
 const props = defineProps<{
@@ -101,23 +102,27 @@ const totalMovements = computed(() => {
         .reduce((sum, m) => sum + Number(m.monto), 0);
 });
 
-const diff = computed(() =>
-    totalMovements.value - totalInvoices.value,
-);
+const diff = computed(() => totalMovements.value - totalInvoices.value);
 
 const validateAndReconcile = () => {
     let warnings: string[] = [];
     let title = wTrans("Confirmar Conciliación").value;
 
     // 1. RFC Consistency Check
-    const selectedInvoiceObjects = props.invoices.filter(i => selectedInvoices.value.includes(i.id));
+    const selectedInvoiceObjects = props.invoices.filter((i) =>
+        selectedInvoices.value.includes(i.id),
+    );
     if (selectedInvoiceObjects.length > 1) {
         const firstRFC = selectedInvoiceObjects[0].rfc;
-        const hasMismatch = selectedInvoiceObjects.some(i => i.rfc !== firstRFC);
-        
+        const hasMismatch = selectedInvoiceObjects.some(
+            (i) => i.rfc !== firstRFC,
+        );
+
         if (hasMismatch) {
             errorTitle.value = wTrans("Error de RFC").value;
-            errorMessage.value = wTrans("Las facturas seleccionadas deben pertenecer al mismo RFC receptor.").value;
+            errorMessage.value = wTrans(
+                "Las facturas seleccionadas deben pertenecer al mismo RFC receptor.",
+            ).value;
             showErrorModal.value = true;
             return;
         }
@@ -125,16 +130,24 @@ const validateAndReconcile = () => {
 
     // 2. Tolerance Check
     const absDiff = Math.abs(diff.value);
-    const tolerance = props.tolerance || 0.00;
+    const tolerance = props.tolerance || 0.0;
 
-    if (absDiff > (tolerance + 0.001)) {
-        title = warnings.length > 0 ? wTrans("Advertencias de Conciliación").value : wTrans("Diferencia Excede Tolerancia").value;
-        warnings.push(`⚠ ${wTrans('Diferencia de Monto').value}:\n${wTrans('La diferencia ($:diff) es mayor que la tolerancia permitida ($:tolerance).', { diff: absDiff.toFixed(2), tolerance: tolerance.toFixed(2) }).value}`);
+    if (absDiff > tolerance + 0.001) {
+        title =
+            warnings.length > 0
+                ? wTrans("Advertencias de Conciliación").value
+                : wTrans("Diferencia Excede Tolerancia").value;
+        warnings.push(
+            `⚠ ${wTrans("Diferencia de Monto").value}:\n${wTrans("La diferencia ($:diff) es mayor que la tolerancia permitida ($:tolerance).", { diff: absDiff.toFixed(2), tolerance: tolerance.toFixed(2) }).value}`,
+        );
     }
 
     if (warnings.length > 0) {
         confirmationTitle.value = title;
-        confirmationMessage.value = warnings.join("\n\n") + "\n\n" + wTrans("¿Estás seguro de que deseas continuar?").value;
+        confirmationMessage.value =
+            warnings.join("\n\n") +
+            "\n\n" +
+            wTrans("¿Estás seguro de que deseas continuar?").value;
         showConfirmationModal.value = true;
         return;
     }
@@ -159,18 +172,22 @@ const submitReconciliation = () => {
             },
             onFinish: () => {
                 processing.value = false;
-            }
+            },
         },
     );
 };
 
 const autoReconcile = () => {
     autoReconciling.value = true;
-    router.get(route("reconciliation.auto"), {}, {
-        onFinish: () => {
-            autoReconciling.value = false;
-        }
-    });
+    router.get(
+        route("reconciliation.auto"),
+        {},
+        {
+            onFinish: () => {
+                autoReconciling.value = false;
+            },
+        },
+    );
 };
 </script>
 
@@ -179,39 +196,84 @@ const autoReconcile = () => {
 
     <AuthenticatedLayout>
         <template #header>
-            <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">{{ $t('Mesa de Trabajo') }}</h2>
+            <h2
+                class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight"
+            >
+                {{ $t("Mesa de Trabajo") }}
+            </h2>
         </template>
 
         <div class="py-12">
             <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
-                
                 <!-- Filters Section -->
-                <div class="mb-6 bg-white dark:bg-gray-800 p-4 rounded-lg shadow border border-gray-200 dark:border-gray-700">
-                    <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">{{ $t('FILTROS DE BÚSQUEDA') }}</h3>
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div
+                    class="mb-6 bg-white dark:bg-gray-800 p-4 rounded-lg shadow border border-gray-200 dark:border-gray-700"
+                >
+                    <h3
+                        class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3"
+                    >
+                        {{ $t("FILTROS DE BÚSQUEDA") }}
+                    </h3>
+                    <div
+                        class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4"
+                    >
                         <!-- Date Range -->
                         <div>
-                            <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{{ $t('Desde') }}</label>
-                            <input type="date" v-model="filterForm.date_from" class="w-full text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md focus:ring-indigo-500 focus:border-indigo-500">
+                            <label
+                                class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1"
+                                >{{ $t("Desde") }}</label
+                            >
+                            <DatePicker
+                                v-model="filterForm.date_from"
+                                :placeholder="$t('dd/mm/aaaa')"
+                            />
                         </div>
                         <div>
-                            <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{{ $t('Hasta') }}</label>
-                            <input type="date" v-model="filterForm.date_to" class="w-full text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md focus:ring-indigo-500 focus:border-indigo-500">
+                            <label
+                                class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1"
+                                >{{ $t("Hasta") }}</label
+                            >
+                            <DatePicker
+                                v-model="filterForm.date_to"
+                                :placeholder="$t('dd/mm/aaaa')"
+                            />
                         </div>
 
                         <!-- Amount Range -->
                         <div>
-                            <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{{ $t('Monto Mín ($)') }}</label>
-                            <input type="number" step="0.01" v-model="filterForm.amount_min" placeholder="0.00" class="w-full text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md focus:ring-indigo-500 focus:border-indigo-500">
+                            <label
+                                class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1"
+                                >{{ $t("Monto Mín ($)") }}</label
+                            >
+                            <input
+                                type="number"
+                                step="0.01"
+                                v-model="filterForm.amount_min"
+                                placeholder="0.00"
+                                class="w-full text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+                            />
                         </div>
                         <div>
-                            <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{{ $t('Monto Máx ($)') }}</label>
-                            <input type="number" step="0.01" v-model="filterForm.amount_max" placeholder="0.00" class="w-full text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md focus:ring-indigo-500 focus:border-indigo-500">
+                            <label
+                                class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1"
+                                >{{ $t("Monto Máx ($)") }}</label
+                            >
+                            <input
+                                type="number"
+                                step="0.01"
+                                v-model="filterForm.amount_max"
+                                placeholder="0.00"
+                                class="w-full text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+                            />
                         </div>
                     </div>
                     <div class="mt-4 flex justify-end space-x-3">
-                        <SecondaryButton @click="clearFilters" size="sm">{{ $t('LIMPIAR') }}</SecondaryButton>
-                        <PrimaryButton @click="applyFilters" size="sm">{{ $t('APLICAR FILTROS') }}</PrimaryButton>
+                        <SecondaryButton @click="clearFilters" size="sm">{{
+                            $t("LIMPIAR")
+                        }}</SecondaryButton>
+                        <PrimaryButton @click="applyFilters" size="sm">{{
+                            $t("APLICAR FILTROS")
+                        }}</PrimaryButton>
                     </div>
                 </div>
 
@@ -220,7 +282,10 @@ const autoReconcile = () => {
                     :total-invoices="totalInvoices"
                     :total-movements="totalMovements"
                     :diff="diff"
-                    :has-selection="selectedInvoices.length > 0 && selectedMovements.length > 0"
+                    :has-selection="
+                        selectedInvoices.length > 0 &&
+                        selectedMovements.length > 0
+                    "
                     :processing="processing"
                     :auto-reconciling="autoReconciling"
                     @validate="validateAndReconcile"
