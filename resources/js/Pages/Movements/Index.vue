@@ -44,20 +44,28 @@ const props = defineProps<{
         amount_min?: string;
         amount_max?: string;
         per_page?: string | number;
+        sort_by?: string;
+        sort_order?: string;
     };
 }>();
 
 const perPage = ref(props.filters?.per_page || 50);
 
-const viewMode = ref("files"); // 'files' | 'movements'
+const viewMode = ref(
+    new URLSearchParams(window.location.search).has("page") ||
+        props.filters?.date_from ||
+        props.filters?.amount_min
+        ? "movements"
+        : "files",
+); // 'files' | 'movements'
 const showModal = ref(false);
 const selectedFile = ref<any>(null);
 const fileMovements = ref<any[]>([]);
 const isLoading = ref(false);
 
 const form = useForm({
-     file: null as File | null,
-     bank_format_id: null as number | null,
+    file: null as File | null,
+    bank_format_id: null as number | null,
 });
 
 const activeTab = ref("all"); // 'all', 'abono', 'cargo'
@@ -85,12 +93,11 @@ const applyFilters = (filters: any) => {
 
 const clearFilters = () => {
     applyFilters({
-        date_from: '',
-        date_to: '',
-        amount_min: '',
-        amount_max: ''
+        date_from: "",
+        date_to: "",
+        amount_min: "",
+        amount_max: "",
     });
-
 };
 
 const handlePerPage = (newPerPage: string | number) => {
@@ -101,6 +108,36 @@ const handlePerPage = (newPerPage: string | number) => {
         amount_min: props.filters?.amount_min,
         amount_max: props.filters?.amount_max,
     });
+};
+
+const handleSortChange = (field: string) => {
+    let newOrder = "desc";
+    if (
+        props.filters?.sort_by === field &&
+        props.filters?.sort_order === "desc"
+    ) {
+        newOrder = "asc";
+    }
+
+    router.get(
+        route("movements.index"),
+        {
+            date_from: props.filters?.date_from,
+            date_to: props.filters?.date_to,
+            amount_min: props.filters?.amount_min,
+            amount_max: props.filters?.amount_max,
+            month: props.filters?.month,
+            year: props.filters?.year,
+            per_page: perPage.value,
+            sort_by: field,
+            sort_order: newOrder,
+        },
+        {
+            preserveState: true,
+            replace: true,
+            preserveScroll: true,
+        },
+    );
 };
 
 const formatDate = (date: string) => {
@@ -119,7 +156,6 @@ const formatCurrency = (amount: number) => {
         currency: "MXN",
     }).format(amount);
 };
-
 
 const viewDetails = async (file: any) => {
     selectedFile.value = file;
@@ -162,7 +198,9 @@ const selectedIds = ref<number[]>([]);
 const batchForm = useForm({ ids: [] as number[] });
 
 const selectAll = computed({
-    get: () => props.files.length > 0 && selectedIds.value.length === props.files.length,
+    get: () =>
+        props.files.length > 0 &&
+        selectedIds.value.length === props.files.length,
     set: (val) => {
         if (val) {
             selectedIds.value = props.files.map((f) => f.id);
@@ -232,41 +270,63 @@ const formatDateNoTime = (date?: string) => {
 
     <AuthenticatedLayout>
         <template #header>
-            <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
-                {{ $t('Movimientos Bancarios') }}
+            <h2
+                class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight"
+            >
+                {{ $t("Movimientos Bancarios") }}
             </h2>
         </template>
 
         <div class="py-12">
             <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
-                
                 <!-- Page Tabs -->
                 <div class="mb-6 border-b border-gray-200 dark:border-gray-700">
-                    <ul class="flex flex-wrap -mb-px text-sm font-medium text-center text-gray-500 dark:text-gray-400">
+                    <ul
+                        class="flex flex-wrap -mb-px text-sm font-medium text-center text-gray-500 dark:text-gray-400"
+                    >
                         <li class="mr-2">
-                            <a href="#" 
-                               @click.prevent="viewMode = 'files'"
-                               :class="viewMode === 'files' ? 'inline-block p-4 text-blue-600 border-b-2 border-blue-600 rounded-t-lg active dark:text-blue-500 dark:border-blue-500' : 'inline-block p-4 border-b-2 border-transparent rounded-t-lg hover:text-gray-600 hover:border-gray-300 dark:hover:text-gray-300'">
-                                {{ $t('Archivos Cargados') }}
+                            <a
+                                href="#"
+                                @click.prevent="viewMode = 'files'"
+                                :class="
+                                    viewMode === 'files'
+                                        ? 'inline-block p-4 text-blue-600 border-b-2 border-blue-600 rounded-t-lg active dark:text-blue-500 dark:border-blue-500'
+                                        : 'inline-block p-4 border-b-2 border-transparent rounded-t-lg hover:text-gray-600 hover:border-gray-300 dark:hover:text-gray-300'
+                                "
+                            >
+                                {{ $t("Archivos Cargados") }}
                             </a>
                         </li>
                         <li class="mr-2">
-                            <a href="#" 
-                               @click.prevent="viewMode = 'movements'"
-                               :class="viewMode === 'movements' ? 'inline-block p-4 text-blue-600 border-b-2 border-blue-600 rounded-t-lg active dark:text-blue-500 dark:border-blue-500' : 'inline-block p-4 border-b-2 border-transparent rounded-t-lg hover:text-gray-600 hover:border-gray-300 dark:hover:text-gray-300'">
-                                {{ $t('Todos los Movimientos') }}
+                            <a
+                                href="#"
+                                @click.prevent="viewMode = 'movements'"
+                                :class="
+                                    viewMode === 'movements'
+                                        ? 'inline-block p-4 text-blue-600 border-b-2 border-blue-600 rounded-t-lg active dark:text-blue-500 dark:border-blue-500'
+                                        : 'inline-block p-4 border-b-2 border-transparent rounded-t-lg hover:text-gray-600 hover:border-gray-300 dark:hover:text-gray-300'
+                                "
+                            >
+                                {{ $t("Todos los Movimientos") }}
                             </a>
                         </li>
                     </ul>
                 </div>
 
-                <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg">
+                <div
+                    class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg"
+                >
                     <div class="p-6 text-gray-900 dark:text-gray-100">
-                        
                         <!-- Header & Actions -->
-                        <div class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
+                        <div
+                            class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4"
+                        >
                             <h3 class="text-lg font-medium">
-                                {{ viewMode === 'files' ? $t('Archivos de Movimientos Cargados') : $t('Listado General de Movimientos') }}
+                                {{
+                                    viewMode === "files"
+                                        ? $t("Archivos de Movimientos Cargados")
+                                        : $t("Listado General de Movimientos")
+                                }}
                             </h3>
 
                             <div class="flex items-center gap-4">
@@ -280,7 +340,10 @@ const formatDateNoTime = (date?: string) => {
                                     leave-to-class="opacity-0 scale-95"
                                 >
                                     <button
-                                        v-if="viewMode === 'files' && selectedIds.length > 0"
+                                        v-if="
+                                            viewMode === 'files' &&
+                                            selectedIds.length > 0
+                                        "
                                         @click="confirmBatchDeletion"
                                         class="inline-flex items-center px-4 py-2 bg-red-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-red-500 active:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition ease-in-out duration-150"
                                     >
@@ -289,66 +352,139 @@ const formatDateNoTime = (date?: string) => {
                                 </Transition>
                             </div>
                         </div>
-                    
-                    <!-- Filters (Only for Movements Tab) -->
-                    <MovementFilters
-                        v-if="viewMode === 'movements'"
-                        :filters="filters"
-                        @apply="applyFilters"
-                        @clear="clearFilters"
-                    />
 
-                    <!-- Files View -->
-                    <div v-if="viewMode === 'files'">
+                        <!-- Filters (Only for Movements Tab) -->
+                        <MovementFilters
+                            v-if="viewMode === 'movements'"
+                            :filters="filters"
+                            @apply="applyFilters"
+                            @clear="clearFilters"
+                        />
 
-
-                        <div v-if="files.length === 0" class="text-center py-8 text-gray-500">
-                             No se han cargado archivos de movimientos aún.
-                        </div>
+                        <!-- Files View -->
+                        <div v-if="viewMode === 'files'">
+                            <div
+                                v-if="files.length === 0"
+                                class="text-center py-8 text-gray-500"
+                            >
+                                No se han cargado archivos de movimientos aún.
+                            </div>
 
                             <div v-else class="overflow-x-auto relative">
-                                <table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
-                                    <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
+                                <table
+                                    class="w-full text-sm text-left text-gray-500 dark:text-gray-400"
+                                >
+                                    <thead
+                                        class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400"
+                                    >
                                         <tr>
                                             <th scope="col" class="p-4 w-4">
                                                 <div class="flex items-center">
-                                                    <input type="checkbox" v-model="selectAll" class="rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500 dark:border-gray-700 dark:bg-gray-900 dark:focus:ring-indigo-600 dark:focus:ring-offset-gray-800" />
+                                                    <input
+                                                        type="checkbox"
+                                                        v-model="selectAll"
+                                                        class="rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500 dark:border-gray-700 dark:bg-gray-900 dark:focus:ring-indigo-600 dark:focus:ring-offset-gray-800"
+                                                    />
                                                 </div>
                                             </th>
-                                            <th scope="col" class="py-3 px-6">{{ $t('ID') }}</th>
-                                            <th scope="col" class="py-3 px-6">{{ $t('BANCO') }}</th>
-                                            <th scope="col" class="py-3 px-6">{{ $t('ARCHIVO') }}</th>
-                                            <th scope="col" class="py-3 px-6">{{ $t('MOVIMIENTOS') }}</th>
-                                            <th scope="col" class="py-3 px-6">{{ $t('FECHA DE CARGA') }}</th>
-                                            <th scope="col" class="py-3 px-6">{{ $t('ACCIONES') }}</th>
+                                            <th scope="col" class="py-3 px-6">
+                                                {{ $t("ID") }}
+                                            </th>
+                                            <th scope="col" class="py-3 px-6">
+                                                {{ $t("BANCO") }}
+                                            </th>
+                                            <th scope="col" class="py-3 px-6">
+                                                {{ $t("ARCHIVO") }}
+                                            </th>
+                                            <th scope="col" class="py-3 px-6">
+                                                {{ $t("MOVIMIENTOS") }}
+                                            </th>
+                                            <th scope="col" class="py-3 px-6">
+                                                {{ $t("FECHA DE CARGA") }}
+                                            </th>
+                                            <th scope="col" class="py-3 px-6">
+                                                {{ $t("ACCIONES") }}
+                                            </th>
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        <tr v-for="file in files" :key="file.id" class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer" @click="viewDetails(file)">
+                                        <tr
+                                            v-for="file in files"
+                                            :key="file.id"
+                                            class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"
+                                            @click="viewDetails(file)"
+                                        >
                                             <td class="p-4 w-4" @click.stop>
                                                 <div class="flex items-center">
-                                                    <input type="checkbox" :value="file.id" v-model="selectedIds" class="rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500 dark:border-gray-700 dark:bg-gray-900 dark:focus:ring-indigo-600 dark:focus:ring-offset-gray-800" />
+                                                    <input
+                                                        type="checkbox"
+                                                        :value="file.id"
+                                                        v-model="selectedIds"
+                                                        class="rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500 dark:border-gray-700 dark:bg-gray-900 dark:focus:ring-indigo-600 dark:focus:ring-offset-gray-800"
+                                                    />
                                                 </div>
                                             </td>
-                                            <td class="py-4 px-6">{{ file.id }}</td>
                                             <td class="py-4 px-6">
-                                                <span class="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-0.5 rounded dark:bg-blue-200 dark:text-blue-800 border border-blue-400">
-                                                    {{ file.bank_format?.name || file.banco?.nombre || "Desconocido" }}
+                                                {{ file.id }}
+                                            </td>
+                                            <td class="py-4 px-6">
+                                                <span
+                                                    class="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-0.5 rounded dark:bg-blue-200 dark:text-blue-800 border border-blue-400"
+                                                >
+                                                    {{
+                                                        file.bank_format
+                                                            ?.name ||
+                                                        file.banco?.nombre ||
+                                                        "Desconocido"
+                                                    }}
                                                 </span>
                                             </td>
-                                            <td class="py-4 px-6 truncate max-w-xs" :title="file.original_name || file.path">
-                                                {{ file.original_name || file.path.split("/").pop() }}
+                                            <td
+                                                class="py-4 px-6 truncate max-w-xs"
+                                                :title="
+                                                    file.original_name ||
+                                                    file.path
+                                                "
+                                            >
+                                                {{
+                                                    file.original_name ||
+                                                    file.path.split("/").pop()
+                                                }}
                                             </td>
                                             <td class="py-4 px-6">
-                                                <span class="bg-gray-100 text-gray-800 text-xs font-semibold mr-2 px-2.5 py-0.5 rounded dark:bg-gray-700 dark:text-gray-300">
+                                                <span
+                                                    class="bg-gray-100 text-gray-800 text-xs font-semibold mr-2 px-2.5 py-0.5 rounded dark:bg-gray-700 dark:text-gray-300"
+                                                >
                                                     {{ file.movimientos_count }}
                                                 </span>
                                             </td>
-                                            <td class="py-4 px-6">{{ formatDate(file.created_at) }}</td>
                                             <td class="py-4 px-6">
-                                                <div class="flex items-center gap-4">
-                                                    <button @click.stop="viewDetails(file)" class="font-medium text-blue-600 dark:text-blue-500 hover:underline">{{ $t('Ver Detalle') }}</button>
-                                                    <button @click.stop="confirmDeleteFile(file)" class="font-medium text-red-600 dark:text-red-500 hover:underline">{{ $t('Eliminar') }}</button>
+                                                {{
+                                                    formatDate(file.created_at)
+                                                }}
+                                            </td>
+                                            <td class="py-4 px-6">
+                                                <div
+                                                    class="flex items-center gap-4"
+                                                >
+                                                    <button
+                                                        @click.stop="
+                                                            viewDetails(file)
+                                                        "
+                                                        class="font-medium text-blue-600 dark:text-blue-500 hover:underline"
+                                                    >
+                                                        {{ $t("Ver Detalle") }}
+                                                    </button>
+                                                    <button
+                                                        @click.stop="
+                                                            confirmDeleteFile(
+                                                                file,
+                                                            )
+                                                        "
+                                                        class="font-medium text-red-600 dark:text-red-500 hover:underline"
+                                                    >
+                                                        {{ $t("Eliminar") }}
+                                                    </button>
                                                 </div>
                                             </td>
                                         </tr>
@@ -362,9 +498,11 @@ const formatDateNoTime = (date?: string) => {
                             v-else-if="viewMode === 'movements'"
                             :movements="movements"
                             :per-page="perPage"
+                            :sort-by="filters?.sort_by"
+                            :sort-order="filters?.sort_order"
                             @update-per-page="handlePerPage"
+                            @sort-change="handleSortChange"
                         />
-
                     </div>
                 </div>
             </div>
@@ -374,35 +512,124 @@ const formatDateNoTime = (date?: string) => {
             <div class="p-6">
                 <div class="flex justify-between items-start mb-4">
                     <div>
-                        <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100">Detalle de Movimientos</h2>
-                        <p class="mt-1 text-sm text-gray-600 dark:text-gray-400" v-if="selectedFile">
-                            Archivo: {{ selectedFile.original_name || selectedFile.path.split("/").pop() }}
+                        <h2
+                            class="text-lg font-medium text-gray-900 dark:text-gray-100"
+                        >
+                            Detalle de Movimientos
+                        </h2>
+                        <p
+                            class="mt-1 text-sm text-gray-600 dark:text-gray-400"
+                            v-if="selectedFile"
+                        >
+                            Archivo:
+                            {{
+                                selectedFile.original_name ||
+                                selectedFile.path.split("/").pop()
+                            }}
                         </p>
                     </div>
-                    <div class="text-right text-sm" v-if="!isLoading && fileMovements.length > 0">
-                        <div class="text-green-600">Abonos: {{ formatCurrency(totalAbonos) }}</div>
-                        <div class="text-red-600">Cargos: {{ formatCurrency(totalCargos) }}</div>
+                    <div
+                        class="text-right text-sm"
+                        v-if="!isLoading && fileMovements.length > 0"
+                    >
+                        <div class="text-green-600">
+                            Abonos: {{ formatCurrency(totalAbonos) }}
+                        </div>
+                        <div class="text-red-600">
+                            Cargos: {{ formatCurrency(totalCargos) }}
+                        </div>
                     </div>
                 </div>
 
                 <div class="mb-4 border-b border-gray-200 dark:border-gray-700">
-                    <ul class="flex flex-wrap -mb-px text-sm font-medium text-center text-gray-500 dark:text-gray-400">
-                        <li class="mr-2"><a href="#" @click.prevent="activeTab = 'all'" :class="activeTab === 'all' ? 'text-blue-600 border-b-2 border-blue-600 dark:text-blue-500 dark:border-blue-500' : 'hover:text-gray-600 hover:border-gray-300 dark:hover:text-gray-300'" class="inline-block p-4 rounded-t-lg">Todos</a></li>
-                        <li class="mr-2"><a href="#" @click.prevent="activeTab = 'abono'" :class="activeTab === 'abono' ? 'text-green-600 border-b-2 border-green-600' : 'hover:text-gray-600 hover:border-gray-300 dark:hover:text-gray-300'" class="inline-block p-4 rounded-t-lg">Abonos</a></li>
-                        <li class="mr-2"><a href="#" @click.prevent="activeTab = 'cargo'" :class="activeTab === 'cargo' ? 'text-red-600 border-b-2 border-red-600' : 'hover:text-gray-600 hover:border-gray-300 dark:hover:text-gray-300'" class="inline-block p-4 rounded-t-lg">Cargos</a></li>
+                    <ul
+                        class="flex flex-wrap -mb-px text-sm font-medium text-center text-gray-500 dark:text-gray-400"
+                    >
+                        <li class="mr-2">
+                            <a
+                                href="#"
+                                @click.prevent="activeTab = 'all'"
+                                :class="
+                                    activeTab === 'all'
+                                        ? 'text-blue-600 border-b-2 border-blue-600 dark:text-blue-500 dark:border-blue-500'
+                                        : 'hover:text-gray-600 hover:border-gray-300 dark:hover:text-gray-300'
+                                "
+                                class="inline-block p-4 rounded-t-lg"
+                                >Todos</a
+                            >
+                        </li>
+                        <li class="mr-2">
+                            <a
+                                href="#"
+                                @click.prevent="activeTab = 'abono'"
+                                :class="
+                                    activeTab === 'abono'
+                                        ? 'text-green-600 border-b-2 border-green-600'
+                                        : 'hover:text-gray-600 hover:border-gray-300 dark:hover:text-gray-300'
+                                "
+                                class="inline-block p-4 rounded-t-lg"
+                                >Abonos</a
+                            >
+                        </li>
+                        <li class="mr-2">
+                            <a
+                                href="#"
+                                @click.prevent="activeTab = 'cargo'"
+                                :class="
+                                    activeTab === 'cargo'
+                                        ? 'text-red-600 border-b-2 border-red-600'
+                                        : 'hover:text-gray-600 hover:border-gray-300 dark:hover:text-gray-300'
+                                "
+                                class="inline-block p-4 rounded-t-lg"
+                                >Cargos</a
+                            >
+                        </li>
                     </ul>
                 </div>
 
                 <div class="mt-6">
                     <div v-if="isLoading" class="text-center py-4">
                         <!-- Spinner -->
-                         <svg class="animate-spin h-5 w-5 mx-auto text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                        <span class="mt-2 block text-sm text-gray-500">Cargando movimientos...</span>
+                        <svg
+                            class="animate-spin h-5 w-5 mx-auto text-gray-500"
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                        >
+                            <circle
+                                class="opacity-25"
+                                cx="12"
+                                cy="12"
+                                r="10"
+                                stroke="currentColor"
+                                stroke-width="4"
+                            ></circle>
+                            <path
+                                class="opacity-75"
+                                fill="currentColor"
+                                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                            ></path>
+                        </svg>
+                        <span class="mt-2 block text-sm text-gray-500"
+                            >Cargando movimientos...</span
+                        >
                     </div>
-                    <div v-else-if="filteredMovements.length === 0" class="text-center py-4 text-gray-500">No hay movimientos de este tipo para mostrar.</div>
-                    <div v-else class="overflow-x-auto max-h-[60vh] overflow-y-auto">
-                        <table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
-                             <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400 sticky top-0">
+                    <div
+                        v-else-if="filteredMovements.length === 0"
+                        class="text-center py-4 text-gray-500"
+                    >
+                        No hay movimientos de este tipo para mostrar.
+                    </div>
+                    <div
+                        v-else
+                        class="overflow-x-auto max-h-[60vh] overflow-y-auto"
+                    >
+                        <table
+                            class="w-full text-sm text-left text-gray-500 dark:text-gray-400"
+                        >
+                            <thead
+                                class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400 sticky top-0"
+                            >
                                 <tr>
                                     <th class="py-2 px-4">Fecha</th>
                                     <th class="py-2 px-4">Descripción</th>
@@ -412,47 +639,102 @@ const formatDateNoTime = (date?: string) => {
                                 </tr>
                             </thead>
                             <tbody>
-                                <tr v-for="mov in filteredMovements" :key="mov.id" class="bg-white border-b dark:bg-gray-800 dark:border-gray-700">
-                                    <td class="py-2 px-4 whitespace-nowrap">{{ formatDateNoTime(mov.fecha) }}</td>
-                                    <td class="py-2 px-4">{{ mov.descripcion }}</td>
-                                     <td class="py-2 px-4">
-                                        <span :class="mov.tipo === 'abono' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'" class="text-xs font-medium px-2.5 py-0.5 rounded">{{ mov.tipo === "abono" ? "Abono" : "Cargo" }}</span>
+                                <tr
+                                    v-for="mov in filteredMovements"
+                                    :key="mov.id"
+                                    class="bg-white border-b dark:bg-gray-800 dark:border-gray-700"
+                                >
+                                    <td class="py-2 px-4 whitespace-nowrap">
+                                        {{ formatDateNoTime(mov.fecha) }}
                                     </td>
                                     <td class="py-2 px-4">
-                                        <span v-if="mov.conciliaciones_count > 0" class="bg-green-100 text-green-800 text-xs font-semibold px-2.5 py-0.5 rounded border border-green-400">Conciliado</span>
-                                        <span v-else class="bg-gray-100 text-gray-800 text-xs font-semibold px-2.5 py-0.5 rounded border border-gray-400">Pendiente</span>
+                                        {{ mov.descripcion }}
                                     </td>
-                                    <td class="py-2 px-4 text-right font-mono" :class="mov.tipo === 'cargo' ? 'text-red-600' : 'text-green-600'">{{ formatCurrency(Number(mov.monto)) }}</td>
+                                    <td class="py-2 px-4">
+                                        <span
+                                            :class="
+                                                mov.tipo === 'abono'
+                                                    ? 'bg-green-100 text-green-800'
+                                                    : 'bg-red-100 text-red-800'
+                                            "
+                                            class="text-xs font-medium px-2.5 py-0.5 rounded"
+                                            >{{
+                                                mov.tipo === "abono"
+                                                    ? "Abono"
+                                                    : "Cargo"
+                                            }}</span
+                                        >
+                                    </td>
+                                    <td class="py-2 px-4">
+                                        <span
+                                            v-if="mov.conciliaciones_count > 0"
+                                            class="bg-green-100 text-green-800 text-xs font-semibold px-2.5 py-0.5 rounded border border-green-400"
+                                            >Conciliado</span
+                                        >
+                                        <span
+                                            v-else
+                                            class="bg-gray-100 text-gray-800 text-xs font-semibold px-2.5 py-0.5 rounded border border-gray-400"
+                                            >Pendiente</span
+                                        >
+                                    </td>
+                                    <td
+                                        class="py-2 px-4 text-right font-mono"
+                                        :class="
+                                            mov.tipo === 'cargo'
+                                                ? 'text-red-600'
+                                                : 'text-green-600'
+                                        "
+                                    >
+                                        {{ formatCurrency(Number(mov.monto)) }}
+                                    </td>
                                 </tr>
                             </tbody>
                         </table>
                     </div>
                 </div>
-                 <div class="mt-6 flex justify-end">
-                    <SecondaryButton @click="closeModal">Cerrar</SecondaryButton>
+                <div class="mt-6 flex justify-end">
+                    <SecondaryButton @click="closeModal"
+                        >Cerrar</SecondaryButton
+                    >
                 </div>
             </div>
         </Modal>
 
         <ConfirmationModal :show="confirmingFileDeletion" @close="closeModal">
-             <template #title> Eliminar Archivo de Movimientos </template>
+            <template #title> Eliminar Archivo de Movimientos </template>
             <template #content>
-                ¿Estás seguro de que deseas eliminar este archivo? Se eliminarán todos los movimientos bancarios asociados permanentemente. Esta acción no se puede deshacer.
+                ¿Estás seguro de que deseas eliminar este archivo? Se eliminarán
+                todos los movimientos bancarios asociados permanentemente. Esta
+                acción no se puede deshacer.
             </template>
             <template #footer>
                 <SecondaryButton @click="closeModal">Cancelar</SecondaryButton>
-                <PrimaryButton class="ml-3 bg-red-600 hover:bg-red-500 focus:bg-red-700 active:bg-red-900 border-red-600 focus:ring-red-500" :class="{ 'opacity-25': form.processing }" :disabled="form.processing" @click="deleteFileConfirmed">Eliminar</PrimaryButton>
+                <PrimaryButton
+                    class="ml-3 bg-red-600 hover:bg-red-500 focus:bg-red-700 active:bg-red-900 border-red-600 focus:ring-red-500"
+                    :class="{ 'opacity-25': form.processing }"
+                    :disabled="form.processing"
+                    @click="deleteFileConfirmed"
+                    >Eliminar</PrimaryButton
+                >
             </template>
         </ConfirmationModal>
 
         <ConfirmationModal :show="confirmingBatchDeletion" @close="closeModal">
             <template #title> Eliminar Archivos Seleccionados </template>
             <template #content>
-                 ¿Estás seguro de que deseas eliminar los {{ selectedIds.length }} archivos seleccionados? Se eliminarán todos los movimientos asociados permanentemente.
+                ¿Estás seguro de que deseas eliminar los
+                {{ selectedIds.length }} archivos seleccionados? Se eliminarán
+                todos los movimientos asociados permanentemente.
             </template>
             <template #footer>
                 <SecondaryButton @click="closeModal">Cancelar</SecondaryButton>
-                <PrimaryButton class="ml-3 bg-red-600 hover:bg-red-500 focus:bg-red-700 active:bg-red-900 border-red-600 focus:ring-red-500" :class="{ 'opacity-25': batchForm.processing }" :disabled="batchForm.processing" @click="deleteBatch">Eliminar Todo</PrimaryButton>
+                <PrimaryButton
+                    class="ml-3 bg-red-600 hover:bg-red-500 focus:bg-red-700 active:bg-red-900 border-red-600 focus:ring-red-500"
+                    :class="{ 'opacity-25': batchForm.processing }"
+                    :disabled="batchForm.processing"
+                    @click="deleteBatch"
+                    >Eliminar Todo</PrimaryButton
+                >
             </template>
         </ConfirmationModal>
     </AuthenticatedLayout>

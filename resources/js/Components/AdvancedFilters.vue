@@ -13,6 +13,7 @@ const props = defineProps<{
         amount_min?: string;
         amount_max?: string;
     };
+    placeholder?: string;
 }>();
 
 const emit = defineEmits(["update"]);
@@ -36,7 +37,11 @@ const emitUpdate = () => {
 
 const updateSearch = debounce(() => {
     emitUpdate();
-}, 300);
+}, 500);
+
+const updateFilters = debounce(() => {
+    emitUpdate();
+}, 800);
 
 const clearFilters = () => {
     search.value = "";
@@ -48,12 +53,11 @@ const clearFilters = () => {
 };
 
 watch(search, updateSearch);
+watch(filterForm, updateFilters, { deep: true });
 </script>
 
 <template>
     <div class="flex flex-col gap-4 w-full">
-        <!-- Top Row: Search & Filter Toggle (if needed, but for now linear) -->
-
         <!-- Search Field (Always Visible and prominent) -->
         <div
             class="flex justify-between items-center bg-white dark:bg-gray-800 p-4 rounded-lg shadow border border-gray-200 dark:border-gray-700"
@@ -82,10 +86,12 @@ watch(search, updateSearch);
                     v-model="search"
                     type="text"
                     class="block w-full p-2 pl-10 text-sm text-gray-900 border border-gray-300 rounded-lg bg-gray-50 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
-                    :placeholder="$t('Buscar por nombre, RFC o monto...')"
+                    :placeholder="
+                        props.placeholder ||
+                        $t('Buscar por nombre, RFC o monto...')
+                    "
                 />
             </div>
-            <!-- You could add an expand/collapse button here for advanced filters -->
         </div>
 
         <!-- Advanced Filters -->
@@ -130,6 +136,7 @@ watch(search, updateSearch);
                         type="number"
                         step="0.01"
                         v-model="filterForm.amount_min"
+                        @keyup.enter="emitUpdate"
                         placeholder="0.00"
                         class="w-full text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md focus:ring-indigo-500 focus:border-indigo-500"
                     />
@@ -143,19 +150,27 @@ watch(search, updateSearch);
                         type="number"
                         step="0.01"
                         v-model="filterForm.amount_max"
+                        @keyup.enter="emitUpdate"
                         placeholder="0.00"
                         class="w-full text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md focus:ring-indigo-500 focus:border-indigo-500"
                     />
                 </div>
             </div>
 
-            <div class="mt-4 flex justify-end space-x-3">
-                <SecondaryButton @click="clearFilters" size="sm">{{
-                    $t("LIMPIAR")
-                }}</SecondaryButton>
-                <PrimaryButton @click="emitUpdate" size="sm">{{
-                    $t("APLICAR FILTROS")
-                }}</PrimaryButton>
+            <div
+                class="mt-4 flex flex-col md:flex-row justify-between items-end gap-4"
+            >
+                <div class="w-full md:w-auto">
+                    <slot name="footer" />
+                </div>
+                <div class="flex space-x-3 w-full md:w-auto justify-end">
+                    <SecondaryButton @click="clearFilters" size="sm">{{
+                        $t("LIMPIAR")
+                    }}</SecondaryButton>
+                    <PrimaryButton @click="emitUpdate" size="sm">{{
+                        $t("APLICAR FILTROS")
+                    }}</PrimaryButton>
+                </div>
             </div>
         </div>
     </div>

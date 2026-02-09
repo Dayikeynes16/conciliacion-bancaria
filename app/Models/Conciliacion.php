@@ -25,6 +25,7 @@ class Conciliacion extends Model
         'fecha_conciliacion' => 'datetime',
     ];
 
+
     public function factura()
     {
         return $this->belongsTo(Factura::class);

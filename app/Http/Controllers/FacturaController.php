@@ -14,6 +14,10 @@ class FacturaController extends Controller
         $month = $request->input('month');
         $year = $request->input('year');
         $date = $request->input('date');
+        $dateFrom = $request->input('date_from');
+        $dateTo = $request->input('date_to');
+        $amountMin = $request->input('amount_min');
+        $amountMax = $request->input('amount_max');
         $sort = $request->input('sort', 'created_at');
         $direction = $request->input('direction', 'desc');
 
@@ -37,11 +41,26 @@ class FacturaController extends Controller
             ->when($date, function ($q) use ($date) {
                 return $q->whereDate('facturas.fecha_emision', $date);
             })
-            ->when((! $date && $month), function ($q) use ($month) {
+            // Date Range Strategy: Range takes precedence over single date or month/year
+            ->when(($dateFrom || $dateTo) && ! $date, function ($q) use ($dateFrom, $dateTo) {
+                if ($dateFrom) {
+                    $q->whereDate('facturas.fecha_emision', '>=', $dateFrom);
+                }
+                if ($dateTo) {
+                    $q->whereDate('facturas.fecha_emision', '<=', $dateTo);
+                }
+            })
+            ->when((! $date && ! $dateFrom && ! $dateTo && $month), function ($q) use ($month) {
                 return $q->whereMonth('facturas.fecha_emision', $month);
             })
-            ->when((! $date && $year), function ($q) use ($year) {
+            ->when((! $date && ! $dateFrom && ! $dateTo && $year), function ($q) use ($year) {
                 return $q->whereYear('facturas.fecha_emision', $year);
+            })
+            ->when($amountMin, function ($q) use ($amountMin) {
+                return $q->where('facturas.monto', '>=', $amountMin);
+            })
+            ->when($amountMax, function ($q) use ($amountMax) {
+                return $q->where('facturas.monto', '<=', $amountMax);
             });
 
         // Apply Sorting
@@ -67,7 +86,11 @@ class FacturaController extends Controller
                 'search' => $search,
                 'month' => $month,
                 'year' => $year,
-                'date' => $date,
+                'date' => $date, // Legacy single date
+                'date_from' => $dateFrom,
+                'date_to' => $dateTo,
+                'amount_min' => $amountMin,
+                'amount_max' => $amountMax,
                 'sort' => $sort,
                 'direction' => $direction,
                 'per_page' => $perPageParam,

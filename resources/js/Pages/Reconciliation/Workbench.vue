@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout.vue";
 import { Head, router } from "@inertiajs/vue3";
-import { ref, computed, reactive } from "vue";
+import { ref, computed, reactive, watch } from "vue";
 import PrimaryButton from "@/Components/PrimaryButton.vue";
 import SecondaryButton from "@/Components/SecondaryButton.vue";
 import WorkbenchSelectionSummary from "./Partials/WorkbenchSelectionSummary.vue";
@@ -33,6 +33,37 @@ const confirmationTitle = ref("");
 const showErrorModal = ref(false);
 const errorMessage = ref("");
 const errorTitle = ref("");
+const reconciliationDate = ref(new Date().toISOString().split("T")[0]);
+
+watch(selectedMovements, (newIds) => {
+    console.log("Selected IDs:", newIds);
+    if (!newIds || newIds.length === 0) return;
+
+    let maxAmount = -1;
+    let bestDate = null;
+
+    newIds.forEach((id) => {
+        // Use loose equality in case types mismatch (string vs number)
+        const mov = props.movements.find((m) => m.id == id);
+
+        if (mov) {
+            console.log("Found mov:", mov);
+            // Ensure amount is treated as a number
+            const amount = parseFloat(mov.monto);
+            if (!isNaN(amount) && amount > maxAmount) {
+                maxAmount = amount;
+                bestDate = mov.fecha;
+            }
+        }
+    });
+
+    if (bestDate) {
+        // Extract YYYY-MM-DD safely
+        const newDate = bestDate.substring(0, 10);
+        console.log("Updating Reconciliation Date to:", newDate);
+        reconciliationDate.value = newDate;
+    }
+});
 
 // Filters Logic
 const filterForm = reactive({
@@ -163,7 +194,9 @@ const submitReconciliation = () => {
         route("reconciliation.store"),
         {
             invoice_ids: selectedInvoices.value,
+
             movement_ids: selectedMovements.value,
+            conciliacion_at: reconciliationDate.value,
         },
         {
             onSuccess: () => {

@@ -6,6 +6,7 @@ import { debounce } from "lodash";
 import StatusTabs from "./Partials/StatusTabs.vue";
 import StatusSummary from "./Partials/StatusSummary.vue";
 import TransactionList from "./Partials/TransactionList.vue";
+import AdvancedFilters from "@/Components/AdvancedFilters.vue";
 
 const props = defineProps<{
     conciliatedInvoices: Array<any>;
@@ -18,6 +19,10 @@ const props = defineProps<{
     totalConciliatedMovements: number;
     filters?: {
         search?: string;
+        date_from?: string;
+        date_to?: string;
+        amount_min?: string;
+        amount_max?: string;
         invoice_sort?: string;
         invoice_direction?: string;
         movement_sort?: string;
@@ -34,25 +39,35 @@ const invoiceDirection = ref(props.filters?.invoice_direction || "desc");
 const movementSort = ref(props.filters?.movement_sort || "date");
 const movementDirection = ref(props.filters?.movement_direction || "desc");
 
-const updateParams = () => {
-    router.get(
-        route("reconciliation.status"),
-        { 
-            search: search.value,
-            invoice_sort: invoiceSort.value,
-            invoice_direction: invoiceDirection.value,
-            movement_sort: movementSort.value,
-            movement_direction: movementDirection.value
-        },
-        {
-            preserveState: true,
-            replace: true,
-        },
-    );
+const updateParams = (newFilters: any = {}) => {
+    // If newFilters has keys (from AdvancedFilters emit), use it.
+    // Otherwise (from sort watchers), fallback to current props.filters.
+    const currentFilters =
+        Object.keys(newFilters).length > 0 ? newFilters : props.filters || {};
+
+    const params = {
+        search: currentFilters.search,
+        date_from: currentFilters.date_from,
+        date_to: currentFilters.date_to,
+        amount_min: currentFilters.amount_min,
+        amount_max: currentFilters.amount_max,
+        invoice_sort: invoiceSort.value,
+        invoice_direction: invoiceDirection.value,
+        movement_sort: movementSort.value,
+        movement_direction: movementDirection.value,
+    };
+
+    router.get(route("reconciliation.status"), params, {
+        preserveState: true,
+        replace: true,
+    });
 };
 
-watch(search, debounce(updateParams, 300));
-watch([invoiceSort, invoiceDirection, movementSort, movementDirection], updateParams);
+// Remove search watcher since component handles it
+// watch(search, debounce(updateParams, 300));
+watch([invoiceSort, invoiceDirection, movementSort, movementDirection], () =>
+    updateParams(),
+);
 </script>
 
 <template>
@@ -67,31 +82,27 @@ watch([invoiceSort, invoiceDirection, movementSort, movementDirection], updatePa
 
         <div class="py-6">
             <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
-                <!-- Top Bar: Tabs & Search -->
-                <div class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
-                    <!-- Tabs Component -->
-                    <StatusTabs 
-                        v-model="activeTab"
-                        :pending-count="pendingInvoices.length + pendingMovements.length"
-                        :conciliated-count="conciliatedInvoices.length + conciliatedMovements.length" 
-                    />
-
-                    <!-- Search -->
-                    <div class="w-full md:w-1/3">
-                        <div class="relative">
-                            <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                                <svg class="w-4 h-4 text-gray-500" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 20">
-                                    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m19 19-4-4m0-7A7 7 0 1 1 1 8a7 7 0 0 1 14 0Z"/>
-                                </svg>
-                            </div>
-                            <input
-                                v-model="search"
-                                type="text"
-                                class="block w-full p-2 pl-10 text-sm text-gray-900 dark:text-gray-100 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 focus:ring-indigo-500 focus:border-indigo-500"
-                                placeholder="Buscar ID, RFC, Nombre o Monto..."
+                <!-- Top Bar: Filters (Tabs inside) -->
+                <div class="mb-6">
+                    <AdvancedFilters
+                        :filters="filters"
+                        :placeholder="$t('Buscar ID, RFC, Nombre o Monto...')"
+                        @update="updateParams"
+                    >
+                        <template #footer>
+                            <StatusTabs
+                                v-model="activeTab"
+                                :pending-count="
+                                    pendingInvoices.length +
+                                    pendingMovements.length
+                                "
+                                :conciliated-count="
+                                    conciliatedInvoices.length +
+                                    conciliatedMovements.length
+                                "
                             />
-                        </div>
-                    </div>
+                        </template>
+                    </AdvancedFilters>
                 </div>
 
                 <StatusSummary
@@ -107,36 +118,54 @@ watch([invoiceSort, invoiceDirection, movementSort, movementDirection], updatePa
                     <TransactionList
                         title="Facturas"
                         type="invoice"
-                        :items="activeTab === 'pending' ? pendingInvoices : conciliatedInvoices"
+                        :items="
+                            activeTab === 'pending'
+                                ? pendingInvoices
+                                : conciliatedInvoices
+                        "
                         :is-conciliated="activeTab === 'conciliated'"
                         :current-sort="invoiceSort"
                         :current-direction="invoiceDirection"
-                        @toggle-sort="(s) => {
-                            if (invoiceSort === s) {
-                                invoiceDirection = invoiceDirection === 'asc' ? 'desc' : 'asc';
-                            } else {
-                                invoiceSort = s;
-                                invoiceDirection = 'desc';
+                        @toggle-sort="
+                            (s) => {
+                                if (invoiceSort === s) {
+                                    invoiceDirection =
+                                        invoiceDirection === 'asc'
+                                            ? 'desc'
+                                            : 'asc';
+                                } else {
+                                    invoiceSort = s;
+                                    invoiceDirection = 'desc';
+                                }
                             }
-                        }"
+                        "
                     />
 
                     <!-- Movements Column -->
                     <TransactionList
                         title="Movimientos"
                         type="movement"
-                        :items="activeTab === 'pending' ? pendingMovements : conciliatedMovements"
+                        :items="
+                            activeTab === 'pending'
+                                ? pendingMovements
+                                : conciliatedMovements
+                        "
                         :is-conciliated="activeTab === 'conciliated'"
                         :current-sort="movementSort"
                         :current-direction="movementDirection"
-                        @toggle-sort="(s) => {
-                             if (movementSort === s) {
-                                movementDirection = movementDirection === 'asc' ? 'desc' : 'asc';
-                            } else {
-                                movementSort = s;
-                                movementDirection = 'desc';
+                        @toggle-sort="
+                            (s) => {
+                                if (movementSort === s) {
+                                    movementDirection =
+                                        movementDirection === 'asc'
+                                            ? 'desc'
+                                            : 'asc';
+                                } else {
+                                    movementSort = s;
+                                    movementDirection = 'desc';
+                                }
                             }
-                        }"
+                        "
                     />
                 </div>
             </div>

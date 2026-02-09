@@ -88,9 +88,9 @@ class MatcherService
     /**
      * Execute a reconciliation match.
      */
-    public function reconcile(array $invoiceIds, array $movementIds, string $type = 'manual'): void
+    public function reconcile(array $invoiceIds, array $movementIds, string $type = 'manual', ?string $date = null): void
     {
-        DB::transaction(function () use ($invoiceIds, $movementIds, $type) {
+        DB::transaction(function () use ($invoiceIds, $movementIds, $type, $date) {
             $teamId = auth()->user()->current_team_id;
             $groupId = \Illuminate\Support\Str::uuid();
 
@@ -138,7 +138,9 @@ class MatcherService
                             'movimiento_id' => $movement->id,
                             'monto_aplicado' => min($invoice->monto, $movement->monto),
                             'tipo' => $type,
+
                             'estatus' => 'conciliado',
+                            'fecha_conciliacion' => $date ?? now(),
                         ]);
                     } else {
                         // N-M Complex case or 1-N / N-1.
@@ -154,7 +156,9 @@ class MatcherService
                             'movimiento_id' => $movement->id,
                             'monto_aplicado' => min($invoice->monto, $movement->monto),
                             'tipo' => $type,
+
                             'estatus' => 'conciliado',
+                            'fecha_conciliacion' => $date ?? now(),
                         ]);
                     }
                 }
