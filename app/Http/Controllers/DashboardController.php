@@ -52,8 +52,8 @@ class DashboardController extends Controller
         $conciliatedThisMonth = Conciliacion::whereHas('factura', function ($q) use ($teamId) {
             $q->where('team_id', $teamId);
         })
-            ->whereMonth('created_at', $month)
-            ->whereYear('created_at', $year)
+            ->whereMonth('fecha_conciliacion', $month)
+            ->whereYear('fecha_conciliacion', $year)
             ->count();
 
         // Recent Activity
@@ -80,8 +80,8 @@ class DashboardController extends Controller
         $conciliatedLastMonth = Conciliacion::whereHas('factura', function ($q) use ($teamId) {
             $q->where('team_id', $teamId);
         })
-            ->whereMonth('created_at', $lastMonth->month)
-            ->whereYear('created_at', $lastMonth->year)
+            ->whereMonth('fecha_conciliacion', $lastMonth->month)
+            ->whereYear('fecha_conciliacion', $lastMonth->year)
             ->count();
 
         $paymentsLastMonth = Movimiento::where('team_id', $teamId)
