@@ -43,6 +43,10 @@ const props = defineProps<{
     filters?: {
         search?: string;
         date?: string;
+        date_from?: string;
+        date_to?: string;
+        amount_min?: string;
+        amount_max?: string;
         sort?: string;
         direction?: string;
         per_page?: string | number;
@@ -59,6 +63,10 @@ const updateParams = (filters: any) => {
         {
             search: filters.search,
             date: filters.date,
+            date_from: filters.date_from,
+            date_to: filters.date_to,
+            amount_min: filters.amount_min,
+            amount_max: filters.amount_max,
             sort: sortColumn.value,
             direction: sortDirection.value,
             per_page: perPage.value,
@@ -245,34 +253,33 @@ const formatCurrency = (amount: number) => {
                                 </p>
                             </div>
 
-                            <!-- Actions -->
-                            <div
-                                class="flex items-center gap-4 w-full md:w-auto"
+                            <!-- Batch Actions (Delete) -->
+                            <Transition
+                                enter-active-class="transition ease-out duration-200"
+                                enter-from-class="opacity-0 scale-95"
+                                enter-to-class="opacity-100 scale-100"
+                                leave-active-class="transition ease-in duration-75"
+                                leave-from-class="opacity-100 scale-100"
+                                leave-to-class="opacity-0 scale-95"
                             >
-                                <Transition
-                                    enter-active-class="transition ease-out duration-200"
-                                    enter-from-class="opacity-0 scale-95"
-                                    enter-to-class="opacity-100 scale-100"
-                                    leave-active-class="transition ease-in duration-75"
-                                    leave-from-class="opacity-100 scale-100"
-                                    leave-to-class="opacity-0 scale-95"
+                                <button
+                                    v-if="selectedIds.length > 0"
+                                    @click="confirmBatchDeletion"
+                                    class="inline-flex items-center px-4 py-2 bg-red-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-red-500 active:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transition ease-in-out duration-150"
                                 >
-                                    <button
-                                        v-if="selectedIds.length > 0"
-                                        @click="confirmBatchDeletion"
-                                        class="inline-flex items-center px-4 py-2 bg-red-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-red-500 active:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transition ease-in-out duration-150"
-                                    >
-                                        {{ $t("Eliminar") }} ({{
-                                            selectedIds.length
-                                        }})
-                                    </button>
-                                </Transition>
+                                    {{ $t("Eliminar") }} ({{
+                                        selectedIds.length
+                                    }})
+                                </button>
+                            </Transition>
+                        </div>
 
-                                <InvoiceFilters
-                                    :filters="filters"
-                                    @update="updateParams"
-                                />
-                            </div>
+                        <!-- Filters -->
+                        <div class="mb-6">
+                            <InvoiceFilters
+                                :filters="filters"
+                                @update="updateParams"
+                            />
                         </div>
 
                         <InvoiceTable

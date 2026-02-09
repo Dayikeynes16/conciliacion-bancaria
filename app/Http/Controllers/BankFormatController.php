@@ -161,6 +161,10 @@ class BankFormatController extends Controller
 
     public function destroy(BankFormat $bankFormat)
     {
+        if ($bankFormat->team_id !== auth()->user()->current_team_id) {
+            abort(403);
+        }
+
         $bankFormat->delete();
 
         return back()->with('success', 'Formato eliminado.');

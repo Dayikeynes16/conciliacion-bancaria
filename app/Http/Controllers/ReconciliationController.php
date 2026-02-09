@@ -140,10 +140,14 @@ class ReconciliationController extends Controller
 
         $count = 0;
         foreach ($request->matches as $match) {
+            // Fetch movement to get the date
+            $movement = Movimiento::find($match['movement_id']);
+
             $matcher->reconcile(
                 [$match['invoice_id']],
                 [$match['movement_id']],
-                'automatico' // Use correct enum value
+                'automatico',
+                $movement ? $movement->fecha : null
             );
             $count++;
         }
@@ -153,9 +157,12 @@ class ReconciliationController extends Controller
 
     public function store(Request $request, MatcherService $matcher)
     {
+        \Illuminate\Support\Facades\Log::info('Reconciliation Store Request', $request->all());
+        \Illuminate\Support\Facades\Log::info('Conciliacion At', ['val' => $request->conciliacion_at]);
         $request->validate([
             'invoice_ids' => 'required|array',
             'movement_ids' => 'required|array',
+            'conciliacion_at' => 'nullable|date',
         ]);
 
         // Validate RFC consistency locally & Ownership
@@ -177,7 +184,7 @@ class ReconciliationController extends Controller
             }
         }
 
-        $matcher->reconcile($request->invoice_ids, $request->movement_ids, 'manual');
+        $matcher->reconcile($request->invoice_ids, $request->movement_ids, 'manual', $request->conciliacion_at);
 
         return back()->with('success', 'Conciliación manual registrada exitosamente.');
     }
@@ -206,18 +213,19 @@ class ReconciliationController extends Controller
         // Date Filter Strategy: Range takes precedence over Month/Year picker
         if ($dateFrom || $dateTo) {
             if ($dateFrom) {
-                $query->whereDate('conciliacions.created_at', '>=', $dateFrom);
+                // Use coalesce to fallback to created_at if fecha_conciliacion is null (though migration defaults might apply)
+                $query->whereDate('conciliacions.fecha_conciliacion', '>=', $dateFrom);
             }
             if ($dateTo) {
-                $query->whereDate('conciliacions.created_at', '<=', $dateTo);
+                $query->whereDate('conciliacions.fecha_conciliacion', '<=', $dateTo);
             }
         } else {
             // Fallback to Month/Year if no specific range provided
             if ($month) {
-                $query->whereMonth('conciliacions.created_at', $month);
+                $query->whereMonth('conciliacions.fecha_conciliacion', $month);
             }
             if ($year) {
-                $query->whereYear('conciliacions.created_at', $year);
+                $query->whereYear('conciliacions.fecha_conciliacion', $year);
             }
         }
 
@@ -235,7 +243,8 @@ class ReconciliationController extends Controller
         // Grouping & Filtering by Aggregate Amount
         $query->groupBy('conciliacions.group_id')
             ->select('conciliacions.group_id')
-            ->selectRaw('MAX(conciliacions.created_at) as created_at');
+            ->selectRaw('MAX(conciliacions.created_at) as created_at')
+            ->selectRaw('MAX(conciliacions.fecha_conciliacion) as fecha_conciliacion');
 
         // Amount Filter (Total Applied in Group)
         if ($amountMin || $amountMax) {
@@ -248,8 +257,13 @@ class ReconciliationController extends Controller
             }
         }
 
+        $perPage = $request->input('per_page', 10);
+        if (!in_array($perPage, [10, 25, 50])) {
+            $perPage = 10;
+        }
+
         $groupsPager = $query->orderBy('created_at', 'desc')
-            ->paginate(15)
+            ->paginate($perPage)
             ->withQueryString();
 
         // 2. Fetch details for these groups
@@ -283,7 +297,7 @@ class ReconciliationController extends Controller
 
             return [
                 'id' => $groupId,
-                'created_at' => $first->created_at,
+                'created_at' => $first->fecha_conciliacion ?? $first->created_at,
                 'user' => $first->user,
                 'invoices' => $invoices,
                 'movements' => $movements,
@@ -305,6 +319,7 @@ class ReconciliationController extends Controller
                 'date_to' => $dateTo,
                 'amount_min' => $amountMin,
                 'amount_max' => $amountMax,
+                'per_page' => (int) $perPage,
             ],
         ]);
     }
@@ -322,6 +337,12 @@ class ReconciliationController extends Controller
         $movementSort = $request->input('movement_sort', 'date');
         $movementDirection = $request->input('movement_direction', 'desc');
 
+        // Advanced Filters
+        $dateFrom = $request->input('date_from');
+        $dateTo = $request->input('date_to');
+        $amountMin = $request->input('amount_min');
+        $amountMax = $request->input('amount_max');
+
         // Invoice Sort Mapping
         $invoiceSortColumn = match ($invoiceSort) {
             'amount' => 'monto',
@@ -335,7 +356,7 @@ class ReconciliationController extends Controller
         };
 
         // Helper closures for search
-        $invoiceSearch = function ($query) use ($search) {
+        $invoiceSearch = function ($query) use ($search, $dateFrom, $dateTo, $month, $year, $amountMin, $amountMax) {
             if ($search) {
                 $query->where(function ($q) use ($search) {
                     $q->where('nombre', 'like', "%{$search}%")
@@ -344,9 +365,30 @@ class ReconciliationController extends Controller
                         ->orWhere('monto', 'like', "%{$search}%");
                 });
             }
+
+            // Date Filters (Date range takes precedence over Month/Year)
+            if ($dateFrom || $dateTo) {
+                if ($dateFrom) {
+                    $query->whereDate('fecha_emision', '>=', $dateFrom);
+                }
+                if ($dateTo) {
+                    $query->whereDate('fecha_emision', '<=', $dateTo);
+                }
+            } else {
+                $query->whereMonth('fecha_emision', $month)
+                    ->whereYear('fecha_emision', $year);
+            }
+
+            // Amount Filters
+            if ($amountMin) {
+                $query->where('monto', '>=', $amountMin);
+            }
+            if ($amountMax) {
+                $query->where('monto', '<=', $amountMax);
+            }
         };
 
-        $movementSearch = function ($query) use ($search) {
+        $movementSearch = function ($query) use ($search, $dateFrom, $dateTo, $month, $year, $amountMin, $amountMax) {
             if ($search) {
                 $query->where(function ($q) use ($search) {
                     $q->where('descripcion', 'like', "%{$search}%")
@@ -354,13 +396,32 @@ class ReconciliationController extends Controller
                         ->orWhere('monto', 'like', "%{$search}%");
                 });
             }
+
+            // Date Filters
+            if ($dateFrom || $dateTo) {
+                if ($dateFrom) {
+                    $query->whereDate('fecha', '>=', $dateFrom);
+                }
+                if ($dateTo) {
+                    $query->whereDate('fecha', '<=', $dateTo);
+                }
+            } else {
+                $query->whereMonth('fecha', $month)
+                    ->whereYear('fecha', $year);
+            }
+
+            // Amount Filters
+            if ($amountMin) {
+                $query->where('monto', '>=', $amountMin);
+            }
+            if ($amountMax) {
+                $query->where('monto', '<=', $amountMax);
+            }
         };
 
         // Conciliated Items
         $conciliatedInvoices = Factura::where('team_id', $teamId)
             ->has('conciliaciones')
-            ->whereMonth('fecha_emision', $month)
-            ->whereYear('fecha_emision', $year)
             ->where($invoiceSearch)
             ->with(['conciliaciones.user'])
             ->orderBy($invoiceSortColumn, $invoiceDirection)
@@ -369,8 +430,6 @@ class ReconciliationController extends Controller
 
         $conciliatedMovements = Movimiento::where('team_id', $teamId)
             ->has('conciliaciones')
-            ->whereMonth('fecha', $month)
-            ->whereYear('fecha', $year)
             ->where($movementSearch)
             ->with(['conciliaciones.user'])
             ->orderBy($movementSortColumn, $movementDirection)
@@ -380,8 +439,6 @@ class ReconciliationController extends Controller
         // Pending Items
         $pendingInvoices = Factura::where('team_id', $teamId)
             ->doesntHave('conciliaciones')
-            ->whereMonth('fecha_emision', $month)
-            ->whereYear('fecha_emision', $year)
             ->where($invoiceSearch)
             ->orderBy($invoiceSortColumn, $invoiceDirection)
             ->get();
@@ -392,8 +449,6 @@ class ReconciliationController extends Controller
                     ->orWhere('tipo', 'Abono');
             })
             ->doesntHave('conciliaciones')
-            ->whereMonth('fecha', $month)
-            ->whereYear('fecha', $year)
             ->where($movementSearch)
             ->orderBy($movementSortColumn, $movementDirection)
             ->get();
@@ -409,6 +464,10 @@ class ReconciliationController extends Controller
             'totalConciliatedMovements' => $conciliatedMovements->sum('monto'),
             'filters' => [
                 'search' => $search,
+                'date_from' => $dateFrom,
+                'date_to' => $dateTo,
+                'amount_min' => $amountMin,
+                'amount_max' => $amountMax,
                 'month' => $month,
                 'year' => $year,
                 'invoice_sort' => $invoiceSort,

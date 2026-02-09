@@ -90,9 +90,19 @@ class MovimientoController extends Controller
         $perPageParam = $request->input('per_page', 50); // Default to 50 for Movements as it was hardcoded
         $perPage = ($perPageParam === 'all') ? 10000 : $perPageParam;
 
+        $sortBy = $request->input('sort_by', 'fecha');
+        $sortOrder = $request->input('sort_order', 'desc');
+
+        if (!in_array($sortBy, ['fecha', 'monto'])) {
+            $sortBy = 'fecha';
+        }
+        if (!in_array($sortOrder, ['asc', 'desc'])) {
+            $sortOrder = 'desc';
+        }
+
         $movements = $movementsQuery->with(['archivo.banco'])
             ->withCount('conciliaciones')
-            ->orderBy('fecha', 'desc')
+            ->orderBy($sortBy, $sortOrder)
             ->paginate($perPage)
             ->withQueryString();
 
@@ -102,12 +112,12 @@ class MovimientoController extends Controller
             'filters' => [
                 'month' => $month,
                 'year' => $year,
-                'date' => $date,
-                'date_from' => $request->input('date_from'),
-                'date_to' => $request->input('date_to'),
+                'date' => $request->input('date'),
                 'amount_min' => $request->input('amount_min'),
                 'amount_max' => $request->input('amount_max'),
                 'per_page' => $perPageParam,
+                'sort_by' => $request->input('sort_by', 'fecha'),
+                'sort_order' => $request->input('sort_order', 'desc'),
             ],
         ]);
     }
