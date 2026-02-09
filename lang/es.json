@@ -1,5 +1,8 @@
 {
     "Mesa de Trabajo": "Mesa de Trabajo",
+    "auth.failed": "Estas credenciales no coinciden con nuestros registros.",
+    "auth.password": "La contraseña proporcionada es incorrecta.",
+    "auth.throttle": "Demasiados intentos de acceso. Por favor intente nuevamente en :seconds segundos.",
     "Inicio": "Inicio",
     "Historial": "Historial",
     "Reporte Estatus": "Reporte Estatus",
