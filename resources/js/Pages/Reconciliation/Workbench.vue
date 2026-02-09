@@ -40,7 +40,7 @@ watch(selectedMovements, (newIds) => {
     if (!newIds || newIds.length === 0) return;
 
     let maxAmount = -1;
-    let bestDate = null;
+    let bestDate: string | null = null;
 
     newIds.forEach((id) => {
         // Use loose equality in case types mismatch (string vs number)
@@ -59,7 +59,8 @@ watch(selectedMovements, (newIds) => {
 
     if (bestDate) {
         // Extract YYYY-MM-DD safely
-        const newDate = bestDate.substring(0, 10);
+        const dateStr = bestDate as string;
+        const newDate = dateStr.substring(0, 10);
         console.log("Updating Reconciliation Date to:", newDate);
         reconciliationDate.value = newDate;
     }

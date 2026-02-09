@@ -45,6 +45,7 @@ const props = defineProps<{
         date_to?: string;
         amount_min?: string;
         amount_max?: string;
+        per_page?: string | number;
     };
 }>();
 
