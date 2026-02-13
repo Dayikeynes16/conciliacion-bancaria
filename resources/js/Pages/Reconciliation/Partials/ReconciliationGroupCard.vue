@@ -166,10 +166,25 @@ const getDifference = (group: any) => {
                             >
                                 {{ movement.descripcion || "Sin Descripción" }}
                             </div>
-                            <!-- NEW: Bank Name Display -->
+                            <!-- NEW: Bank Format Display -->
+                            <div
+                                v-if="movement.archivo?.bank_format"
+                                class="text-[10px] font-bold px-1.5 py-0.5 rounded border inline-block w-fit mb-1"
+                                :style="{
+                                    backgroundColor:
+                                        movement.archivo.bank_format.color +
+                                        '15',
+                                    color: movement.archivo.bank_format.color,
+                                    borderColor:
+                                        movement.archivo.bank_format.color +
+                                        '30',
+                                }"
+                            >
+                                {{ movement.archivo.bank_format.name }}
+                            </div>
                             <div
                                 class="text-xs font-semibold text-indigo-500 mt-0.5"
-                                v-if="movement.banco"
+                                v-else-if="movement.banco"
                             >
                                 {{ movement.banco.nombre }}
                             </div>

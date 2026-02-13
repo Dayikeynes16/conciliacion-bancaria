@@ -102,16 +102,24 @@ class MovimientoController extends Controller
         $sortBy = $request->input('sort_by', 'fecha');
         $sortOrder = $request->input('sort_order', 'desc');
 
-        if (! in_array($sortBy, ['fecha', 'monto'])) {
+        if (! in_array($sortBy, ['fecha', 'monto', 'bank'])) {
             $sortBy = 'fecha';
         }
         if (! in_array($sortOrder, ['asc', 'desc'])) {
             $sortOrder = 'desc';
         }
 
-        $movements = $movementsQuery->with(['archivo.banco'])
+        if ($sortBy === 'bank') {
+            $movementsQuery->join('archivos', 'movimientos.file_id', '=', 'archivos.id')
+                ->leftJoin('bank_formats', 'archivos.bank_format_id', '=', 'bank_formats.id')
+                ->orderBy('bank_formats.name', $sortOrder)
+                ->select('movimientos.*');
+        } else {
+            $movementsQuery->orderBy($sortBy, $sortOrder);
+        }
+
+        $movements = $movementsQuery->with(['archivo.banco', 'archivo.bankFormat'])
             ->withCount('conciliaciones')
-            ->orderBy($sortBy, $sortOrder)
             ->paginate($perPage)
             ->withQueryString();
 

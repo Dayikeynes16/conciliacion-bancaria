@@ -31,6 +31,7 @@ class ReconciliationController extends Controller
             ->where(function ($query) {
                 $query->where('tipo', 'abono')->orWhere('tipo', 'Abono');
             })
+            ->with(['archivo.bankFormat'])
             ->doesntHave('conciliaciones');
 
         // Date Filter Strategy
@@ -270,7 +271,7 @@ class ReconciliationController extends Controller
         $groupIds = collect($groupsPager->items())->pluck('group_id');
 
         $details = Conciliacion::whereIn('group_id', $groupIds)
-            ->with(['factura', 'movimiento.banco', 'user'])
+            ->with(['factura', 'movimiento.archivo.bankFormat', 'user'])
             ->get()
             ->groupBy('group_id');
 
@@ -431,7 +432,7 @@ class ReconciliationController extends Controller
         $conciliatedMovements = Movimiento::where('team_id', $teamId)
             ->has('conciliaciones')
             ->where($movementSearch)
-            ->with(['conciliaciones.user'])
+            ->with(['conciliaciones.user', 'archivo.bankFormat'])
             ->orderBy($movementSortColumn, $movementDirection)
             ->limit(50)
             ->get();
@@ -450,6 +451,7 @@ class ReconciliationController extends Controller
             })
             ->doesntHave('conciliaciones')
             ->where($movementSearch)
+            ->with(['archivo.bankFormat'])
             ->orderBy($movementSortColumn, $movementDirection)
             ->get();
 

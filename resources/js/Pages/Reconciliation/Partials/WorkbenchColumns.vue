@@ -334,7 +334,28 @@ const sortedMovements = computed(() => {
                                 {{ formatDate(movement.fecha) }}
                             </div>
                             <div
-                                class="text-[10px] text-gray-400 uppercase mt-0.5 tracking-wide bg-gray-100 dark:bg-gray-700 inline-block px-1 rounded"
+                                v-if="movement.archivo?.bank_format"
+                                class="text-[10px] font-bold px-1.5 py-0.5 rounded border inline-block w-fit mb-1"
+                                :style="{
+                                    backgroundColor:
+                                        movement.archivo.bank_format.color +
+                                        '15',
+                                    color: movement.archivo.bank_format.color,
+                                    borderColor:
+                                        movement.archivo.bank_format.color +
+                                        '30',
+                                }"
+                            >
+                                {{ movement.archivo.bank_format.name }}
+                            </div>
+                            <div
+                                v-else-if="movement.archivo?.banco"
+                                class="text-[10px] font-bold text-indigo-600 uppercase mt-0.5 tracking-wide bg-indigo-50 dark:bg-indigo-900/30 inline-block px-1 rounded"
+                            >
+                                {{ movement.archivo.banco.nombre }}
+                            </div>
+                            <div
+                                class="text-[10px] text-gray-400 uppercase mt-0.5 tracking-wide bg-gray-100 dark:bg-gray-700 inline-block px-1 rounded ml-1"
                             >
                                 {{ movement.tipo }}
                             </div>
