@@ -159,7 +159,7 @@ class ReconciliationPdfExport implements FromView, WithTitle
 
         // Clean up data for the view
         $safeConciliatedGroups = $conciliatedGroups->map(function ($group) {
-            return (object) [
+            return [
                 'id' => $group['id'],
                 'short_id' => $group['short_id'],
                 'date' => $group['date'],
@@ -193,10 +193,33 @@ class ReconciliationPdfExport implements FromView, WithTitle
             ];
         });
 
+        $safePendingInvoices = $pendingInvoices->map(function ($inv) {
+            return (object) [
+                'date' => $inv->fecha_emision,
+                'rfc' => $inv->rfc ?: 'N/A',
+                'name' => Str::limit($inv->nombre, 50),
+                'amount' => $inv->monto,
+            ];
+        });
+
+        $safePendingMovements = $pendingMovements->map(function ($mov) {
+            $bankName = '';
+            if ($mov->banco) {
+                $bankName = is_array($mov->banco) ? ($mov->banco['nombre'] ?? '') : ($mov->banco->nombre ?? '');
+            }
+
+            return (object) [
+                'date' => $mov->fecha,
+                'description' => Str::limit($mov->descripcion, 60),
+                'bank_label' => $bankName ?: 'N/A',
+                'amount' => $mov->monto,
+            ];
+        });
+
         return view('exports.reconciliation.pdf_report', [
             'conciliatedGroups' => $safeConciliatedGroups,
-            'pendingInvoices' => $pendingInvoices,
-            'pendingMovements' => $pendingMovements,
+            'pendingInvoices' => $safePendingInvoices,
+            'pendingMovements' => $safePendingMovements,
             'summary' => $summary,
             'filters' => [
                 'month' => $this->month,
