@@ -32,7 +32,9 @@ class SummarySheet implements FromCollection, ShouldAutoSize, WithEvents, WithSt
 
     protected $amountMax;
 
-    public function __construct($teamId, $month, $year, $dateFrom, $dateTo, $search = null, $amountMin = null, $amountMax = null)
+    protected $groupIds;
+
+    public function __construct($teamId, $month, $year, $dateFrom, $dateTo, $search = null, $amountMin = null, $amountMax = null, $groupIds = [])
     {
         $this->teamId = $teamId;
         $this->month = $month;
@@ -42,6 +44,7 @@ class SummarySheet implements FromCollection, ShouldAutoSize, WithEvents, WithSt
         $this->search = $search;
         $this->amountMin = $amountMin;
         $this->amountMax = $amountMax;
+        $this->groupIds = $groupIds;
     }
 
     public function collection()
@@ -62,7 +65,12 @@ class SummarySheet implements FromCollection, ShouldAutoSize, WithEvents, WithSt
 
         // 3. Reconciliations (Totals)
         $conciliacionQuery = Conciliacion::where('conciliacions.team_id', $this->teamId);
-        $this->applyFilters($conciliacionQuery, 'fecha_conciliacion');
+
+        if (! empty($this->groupIds)) {
+            $conciliacionQuery->whereIn('conciliacions.group_id', $this->groupIds);
+        } else {
+            $this->applyFilters($conciliacionQuery, 'fecha_conciliacion');
+        }
 
         $reconciliationCount = (clone $conciliacionQuery)->distinct('group_id')->count('group_id');
 
@@ -70,17 +78,16 @@ class SummarySheet implements FromCollection, ShouldAutoSize, WithEvents, WithSt
         $totalConciliadoInvoices = (clone $conciliacionQuery)->sum('monto_aplicado');
 
         // Sum of actual movement amounts linked in these conciliations
-        $totalConciliadoMovements = (clone $conciliacionQuery)
-            ->join('movimientos', 'conciliacions.movimiento_id', '=', 'movimientos.id')
-            ->sum('monto_aplicado'); // In this system, monto_aplicado is what ties them.
+        // We use group_id to find ALL movements and invoices in these groups
+        $matchedGroupIds = (clone $conciliacionQuery)->pluck('group_id')->unique();
 
-        // However, for consistency with user request, we might want the sum of the MOVEMENTS themselves
-        // that are touched by these conciliations in this period.
-        $movementIds = (clone $conciliacionQuery)->pluck('movimiento_id')->unique();
-        $sumOfMovements = Movimiento::whereIn('id', $movementIds)->sum('monto');
+        $sumOfMovements = Movimiento::whereIn('id', function ($q) use ($matchedGroupIds) {
+            $q->select('movimiento_id')->from('conciliacions')->whereIn('group_id', $matchedGroupIds);
+        })->sum('monto');
 
-        $facturaIds = (clone $conciliacionQuery)->pluck('factura_id')->unique();
-        $sumOfFacturas = Factura::whereIn('id', $facturaIds)->sum('monto');
+        $sumOfFacturas = Factura::whereIn('id', function ($q) use ($matchedGroupIds) {
+            $q->select('factura_id')->from('conciliacions')->whereIn('group_id', $matchedGroupIds);
+        })->sum('monto');
 
         $period = $this->dateFrom ? ($this->dateFrom.' al '.$this->dateTo) : ($this->month.'/'.$this->year);
 
@@ -139,7 +146,7 @@ class SummarySheet implements FromCollection, ShouldAutoSize, WithEvents, WithSt
         if ($this->amountMin || $this->amountMax) {
             $model = $query->getModel();
             $col = ($model instanceof \App\Models\Conciliacion) ? 'monto_aplicado' : 'monto';
-            
+
             if ($this->amountMin) {
                 $query->where($col, '>=', $this->amountMin);
             }

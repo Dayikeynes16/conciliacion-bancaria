@@ -34,7 +34,9 @@ class ConciliatedInvoicesSheet implements FromQuery, ShouldAutoSize, WithChunkRe
 
     protected $amountMax;
 
-    public function __construct($teamId, $month, $year, $dateFrom, $dateTo, $search = null, $amountMin = null, $amountMax = null)
+    protected $groupIds;
+
+    public function __construct($teamId, $month, $year, $dateFrom, $dateTo, $search = null, $amountMin = null, $amountMax = null, $groupIds = [])
     {
         $this->teamId = $teamId;
         $this->month = $month;
@@ -44,6 +46,7 @@ class ConciliatedInvoicesSheet implements FromQuery, ShouldAutoSize, WithChunkRe
         $this->search = $search;
         $this->amountMin = $amountMin;
         $this->amountMax = $amountMax;
+        $this->groupIds = $groupIds;
     }
 
     public function query()
@@ -61,6 +64,14 @@ class ConciliatedInvoicesSheet implements FromQuery, ShouldAutoSize, WithChunkRe
             ->join('facturas', 'conciliacions.factura_id', '=', 'facturas.id')
             ->groupBy('conciliacions.group_id', 'conciliacions.factura_id', 'conciliacions.user_id')
             ->orderBy('conciliacions.group_id');
+
+        // If we have specific groupIds from the orchestrator, we use them.
+        // These IDs were already filtered by search/date/amount in the orchestrator.
+        if (! empty($this->groupIds)) {
+            $query->whereIn('conciliacions.group_id', $this->groupIds);
+
+            return $query;
+        }
 
         if ($this->dateFrom || $this->dateTo) {
             if ($this->dateFrom) {

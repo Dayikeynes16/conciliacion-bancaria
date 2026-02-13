@@ -42,60 +42,33 @@ class ReconciliationPdfExport implements FromView, WithTitle
 
     public function view(): View
     {
+        $teamId = $this->teamId;
+
+        // 1. Identify Group IDs that match the filters (Group-Aware Logic)
+        $groupIds = $this->getMatchingGroupIds();
+
         // --- 1. Fetch Conciliated Groups ---
-        $conciliatedQuery = Conciliacion::query()
-            ->join('facturas', 'conciliacions.factura_id', '=', 'facturas.id')
-            ->join('movimientos', 'conciliacions.movimiento_id', '=', 'movimientos.id')
-            ->where('facturas.team_id', $this->teamId);
+        // Fetch all conciliacion records for the matched groups
+        $conciliatedRecords = Conciliacion::where('conciliacions.team_id', $teamId)
+            ->whereIn('conciliacions.group_id', $groupIds)
+            ->with(['factura', 'movimiento.archivo.bankFormat', 'user', 'movimiento.banco'])
+            ->get();
 
-        if ($this->dateFrom) {
-            $conciliatedQuery->whereDate('conciliacions.fecha_conciliacion', '>=', $this->dateFrom);
-        }
-        if ($this->dateTo) {
-            $conciliatedQuery->whereDate('conciliacions.fecha_conciliacion', '<=', $this->dateTo);
-        }
-        if (! $this->dateFrom && ! $this->dateTo) {
-            if ($this->month) {
-                $conciliatedQuery->whereMonth('conciliacions.fecha_conciliacion', $this->month);
-            }
-            if ($this->year) {
-                $conciliatedQuery->whereYear('conciliacions.fecha_conciliacion', $this->year);
-            }
-        }
+        // Force the same grouping logic as in the history/status views
+        $conciliatedGroupsRaw = $conciliatedRecords->groupBy('group_id');
 
-        if ($this->search) {
-            $conciliatedQuery->where(function ($q) {
-                $q->where('facturas.nombre', 'like', "%{$this->search}%")
-                    ->orWhere('facturas.rfc', 'like', "%{$this->search}%")
-                    ->orWhere('movimientos.descripcion', 'like', "%{$this->search}%");
-            });
-        }
-
-        if ($this->amountMin) {
-            $conciliatedQuery->where('facturas.monto', '>=', $this->amountMin);
-        }
-
-        if ($this->amountMax) {
-            $conciliatedQuery->where('facturas.monto', '<=', $this->amountMax);
-        }
-
-        // Get all group IDs first to avoid massive join duplication issues if we just get()
-        $groupIds = $conciliatedQuery->select('conciliacions.group_id')->distinct()->pluck('group_id');
-
-        // Fetch details
-        $details = Conciliacion::whereIn('group_id', $groupIds)
-            ->with(['factura', 'movimiento', 'user'])
-            ->lazy()
-            ->groupBy('group_id');
-
-        $conciliatedGroups = $details->map(function ($items, $groupId) {
+        $conciliatedGroups = $conciliatedGroupsRaw->map(function ($items, $groupId) {
             $first = $items->first();
-            $invoices = $items->pluck('factura')->unique('id')->values();
-            $movements = $items->pluck('movimiento')->unique('id')->values();
+            $invoices = $items->pluck('factura')->unique('id')->filter()->values();
+            $movements = $items->pluck('movimiento')->unique('id')->filter()->values();
+
+            // Correct the date logic - use the latest conciliation date for the group
+            $groupDate = $items->max('fecha_conciliacion');
 
             return [
                 'id' => $groupId,
-                'date' => $first->fecha_conciliacion ?? $first->created_at,
+                'short_id' => substr($groupId, 0, 8).'...',
+                'date' => $groupDate ? \Carbon\Carbon::parse($groupDate) : now(),
                 'user' => $first->user->name ?? 'N/A',
                 'invoices' => $invoices,
                 'movements' => $movements,
@@ -106,17 +79,16 @@ class ReconciliationPdfExport implements FromView, WithTitle
         })->sortByDesc('date');
 
         // --- 2. Fetch Pending Invoices ---
-        $pendingInvoicesQuery = Factura::where('team_id', $this->teamId)->doesntHave('conciliaciones');
-        if ($this->dateFrom) {
-            $pendingInvoicesQuery->whereDate('fecha_emision', '>=', $this->dateFrom);
-        }
-        if ($this->dateTo) {
-            $pendingInvoicesQuery->whereDate('fecha_emision', '<=', $this->dateTo);
-        }
-        if (! $this->dateFrom && ! $this->dateTo) {
-            if ($this->month) {
-                $pendingInvoicesQuery->whereMonth('fecha_emision', $this->month);
+        $pendingInvoicesQuery = Factura::where('team_id', $teamId)->doesntHave('conciliaciones');
+        if ($this->dateFrom || $this->dateTo) {
+            if ($this->dateFrom) {
+                $pendingInvoicesQuery->whereDate('fecha_emision', '>=', $this->dateFrom);
             }
+            if ($this->dateTo) {
+                $pendingInvoicesQuery->whereDate('fecha_emision', '<=', $this->dateTo);
+            }
+        } elseif ($this->month && $this->year) {
+            $pendingInvoicesQuery->whereMonth('fecha_emision', $this->month);
             if ($this->year) {
                 $pendingInvoicesQuery->whereYear('fecha_emision', $this->year);
             }
@@ -137,25 +109,25 @@ class ReconciliationPdfExport implements FromView, WithTitle
         if ($this->amountMax) {
             $pendingInvoicesQuery->where('monto', '<=', $this->amountMax);
         }
-        $pendingInvoices = $pendingInvoicesQuery->orderBy('fecha_emision', 'desc')->lazy();
+        $pendingInvoices = $pendingInvoicesQuery->orderBy('fecha_emision', 'desc')->get();
 
         // --- 3. Fetch Pending Movements ---
-        $pendingMovementsQuery = Movimiento::where('team_id', $this->teamId)
-            ->where(function ($q) {
-                $q->where('tipo', 'abono')->orWhere('tipo', 'Abono');
+        $pendingMovementsQuery = Movimiento::where('team_id', $teamId)
+            ->where(function ($query) {
+                $query->where('tipo', 'abono')
+                    ->orWhere('tipo', 'Abono');
             })
             ->doesntHave('conciliaciones');
 
-        if ($this->dateFrom) {
-            $pendingMovementsQuery->whereDate('fecha', '>=', $this->dateFrom);
-        }
-        if ($this->dateTo) {
-            $pendingMovementsQuery->whereDate('fecha', '<=', $this->dateTo);
-        }
-        if (! $this->dateFrom && ! $this->dateTo) {
-            if ($this->month) {
-                $pendingMovementsQuery->whereMonth('fecha', $this->month);
+        if ($this->dateFrom || $this->dateTo) {
+            if ($this->dateFrom) {
+                $pendingMovementsQuery->whereDate('fecha', '>=', $this->dateFrom);
             }
+            if ($this->dateTo) {
+                $pendingMovementsQuery->whereDate('fecha', '<=', $this->dateTo);
+            }
+        } elseif ($this->month && $this->year) {
+            $pendingMovementsQuery->whereMonth('fecha', $this->month);
             if ($this->year) {
                 $pendingMovementsQuery->whereYear('fecha', $this->year);
             }
@@ -175,26 +147,9 @@ class ReconciliationPdfExport implements FromView, WithTitle
         if ($this->amountMax) {
             $pendingMovementsQuery->where('monto', '<=', $this->amountMax);
         }
-        $pendingMovements = $pendingMovementsQuery->orderBy('fecha', 'desc')->lazy();
+        $pendingMovements = $pendingMovementsQuery->orderBy('fecha', 'desc')->get();
 
         // --- 4. Summaries ---
-
-        // Strict Data Filtering: Ensure pending items are NOT in conciliated groups
-        // Although the query `doesntHave('conciliaciones')` *should* handle this,
-        // we enforce it here to be absolutely safe as per user request.
-
-        $conciliatedInvoiceIds = $conciliatedGroups->pluck('invoices')->flatten()->pluck('id')->unique()->toArray();
-        $conciliatedMovementIds = $conciliatedGroups->pluck('movements')->flatten()->pluck('id')->unique()->toArray();
-
-        // Convert lazy collections for rejected filtering
-        $pendingInvoices = $pendingInvoices->reject(function ($invoice) use ($conciliatedInvoiceIds) {
-            return in_array($invoice->id, $conciliatedInvoiceIds);
-        });
-
-        $pendingMovements = $pendingMovements->reject(function ($movement) use ($conciliatedMovementIds) {
-            return in_array($movement->id, $conciliatedMovementIds);
-        });
-
         $summary = [
             'conciliated_invoices' => $conciliatedGroups->sum('total_invoices'),
             'conciliated_movements' => $conciliatedGroups->sum('total_movements'),
@@ -202,25 +157,19 @@ class ReconciliationPdfExport implements FromView, WithTitle
             'pending_movements' => $pendingMovements->sum('monto'),
         ];
 
-        // --- Data Shaping for View ---
+        // Clean up data for the view
         $safeConciliatedGroups = $conciliatedGroups->map(function ($group) {
-
-            // Format dates
-            $groupDate = $group['date'] instanceof \Carbon\Carbon
-                ? $group['date']
-                : \Carbon\Carbon::parse($group['date']);
-
-            return [
+            return (object) [
                 'id' => $group['id'],
-                'short_id' => substr($group['id'], 0, 8).'...'.substr($group['id'], -4),
-                'date' => $groupDate,
+                'short_id' => $group['short_id'],
+                'date' => $group['date'],
                 'user' => $group['user'],
                 'total_invoices' => $group['total_invoices'],
                 'total_movements' => $group['total_movements'],
                 'difference' => $group['difference'],
                 'invoices' => $group['invoices']->map(function ($inv) {
                     return (object) [
-                        'rfc' => $inv->rfc ?: 'N/A', // Handle null RFC
+                        'rfc' => $inv->rfc ?: 'N/A',
                         'name' => Str::limit($inv->nombre, 40),
                         'date' => $inv->fecha_emision,
                         'folio' => $inv->folio ?? ($inv->uuid ? substr($inv->uuid, 0, 8) : 'N/A'),
@@ -230,15 +179,7 @@ class ReconciliationPdfExport implements FromView, WithTitle
                 'movements' => $group['movements']->map(function ($mov) {
                     $bankName = '';
                     if ($mov->banco) {
-                        try {
-                            if (is_array($mov->banco)) {
-                                $bankName = $mov->banco['nombre'] ?? $mov->banco['name'] ?? $mov->banco['codigo'] ?? '';
-                            } elseif (is_object($mov->banco)) {
-                                $bankName = $mov->banco->nombre ?? $mov->banco->name ?? $mov->banco->codigo ?? '';
-                            }
-                        } catch (\Exception $e) {
-                            $bankName = '';
-                        }
+                        $bankName = is_array($mov->banco) ? ($mov->banco['nombre'] ?? '') : ($mov->banco->nombre ?? '');
                     }
 
                     return (object) [
@@ -252,37 +193,10 @@ class ReconciliationPdfExport implements FromView, WithTitle
             ];
         });
 
-        $safePendingInvoices = $pendingInvoices->map(function ($inv) {
-            return (object) [
-                'rfc' => $inv->rfc,
-                'name' => Str::limit($inv->nombre, 50),
-                'date' => $inv->fecha_emision,
-                'uuid' => $inv->uuid,
-                'short_uuid' => substr($inv->uuid, 0, 8).'...',
-                'folio' => $inv->folio ?? 'N/A',
-                'amount' => $inv->monto,
-            ];
-        });
-
-        $safePendingMovements = $pendingMovements->map(function ($mov) {
-            $bankName = '';
-            if ($mov->banco) {
-                $bankName = is_array($mov->banco) ? ($mov->banco['nombre'] ?? '') : ($mov->banco->nombre ?? '');
-            }
-
-            return (object) [
-                'description' => Str::limit($mov->descripcion, 80),
-                'bank_label' => $bankName ?: 'N/A',
-                'date' => $mov->fecha,
-                'reference' => $mov->referencia,
-                'amount' => $mov->monto,
-            ];
-        });
-
         return view('exports.reconciliation.pdf_report', [
             'conciliatedGroups' => $safeConciliatedGroups,
-            'pendingInvoices' => $safePendingInvoices,
-            'pendingMovements' => $safePendingMovements,
+            'pendingInvoices' => $pendingInvoices,
+            'pendingMovements' => $pendingMovements,
             'summary' => $summary,
             'filters' => [
                 'month' => $this->month,
@@ -292,6 +206,65 @@ class ReconciliationPdfExport implements FromView, WithTitle
             ],
             'generated_at' => now(),
         ]);
+    }
+
+    protected function getMatchingGroupIds(): array
+    {
+        // 1. Groups matching via Invoices
+        $invoiceQuery = Factura::where('team_id', $this->teamId)
+            ->join('conciliacions', 'facturas.id', '=', 'conciliacions.factura_id');
+
+        $this->applyGenericFilters($invoiceQuery, 'facturas.fecha_emision', 'facturas.monto');
+
+        if ($this->search) {
+            $invoiceQuery->where(function ($q) {
+                $q->where('facturas.nombre', 'like', "%{$this->search}%")
+                    ->orWhere('facturas.rfc', 'like', "%{$this->search}%")
+                    ->orWhere('facturas.folio', 'like', "%{$this->search}%")
+                    ->orWhere('facturas.referencia', 'like', "%{$this->search}%");
+            });
+        }
+
+        $groupIdsFromInvoices = $invoiceQuery->pluck('conciliacions.group_id');
+
+        // 2. Groups matching via Movements
+        $movementQuery = Movimiento::where('team_id', $this->teamId)
+            ->join('conciliacions', 'movimientos.id', '=', 'conciliacions.movimiento_id');
+
+        $this->applyGenericFilters($movementQuery, 'movimientos.fecha', 'movimientos.monto');
+
+        if ($this->search) {
+            $movementQuery->where(function ($q) {
+                $q->where('movimientos.descripcion', 'like', "%{$this->search}%")
+                    ->orWhere('movimientos.referencia', 'like', "%{$this->search}%");
+            });
+        }
+
+        $groupIdsFromMovements = $movementQuery->pluck('conciliacions.group_id');
+
+        return $groupIdsFromInvoices->merge($groupIdsFromMovements)->unique()->filter()->toArray();
+    }
+
+    protected function applyGenericFilters($query, $dateCol, $amountCol)
+    {
+        if ($this->dateFrom || $this->dateTo) {
+            if ($this->dateFrom) {
+                $query->whereDate($dateCol, '>=', $this->dateFrom);
+            }
+            if ($this->dateTo) {
+                $query->whereDate($dateCol, '<=', $this->dateTo);
+            }
+        } elseif ($this->month && $this->year) {
+            $query->whereMonth('conciliacions.fecha_conciliacion', $this->month)
+                ->whereYear('conciliacions.fecha_conciliacion', $this->year);
+        }
+
+        if ($this->amountMin) {
+            $query->where($amountCol, '>=', $this->amountMin);
+        }
+        if ($this->amountMax) {
+            $query->where($amountCol, '<=', $this->amountMax);
+        }
     }
 
     public function title(): string

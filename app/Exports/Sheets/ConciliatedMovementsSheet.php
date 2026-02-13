@@ -34,7 +34,9 @@ class ConciliatedMovementsSheet implements FromQuery, ShouldAutoSize, WithChunkR
 
     protected $amountMax;
 
-    public function __construct($teamId, $month, $year, $dateFrom, $dateTo, $search = null, $amountMin = null, $amountMax = null)
+    protected $groupIds;
+
+    public function __construct($teamId, $month, $year, $dateFrom, $dateTo, $search = null, $amountMin = null, $amountMax = null, $groupIds = [])
     {
         $this->teamId = $teamId;
         $this->month = $month;
@@ -44,6 +46,7 @@ class ConciliatedMovementsSheet implements FromQuery, ShouldAutoSize, WithChunkR
         $this->search = $search;
         $this->amountMin = $amountMin;
         $this->amountMax = $amountMax;
+        $this->groupIds = $groupIds;
     }
 
     public function query()
@@ -53,14 +56,21 @@ class ConciliatedMovementsSheet implements FromQuery, ShouldAutoSize, WithChunkR
                 'conciliacions.group_id',
                 'conciliacions.movimiento_id',
                 'conciliacions.user_id',
-                'conciliacions.factura_id',
-                DB::raw('MAX(conciliacions.fecha_conciliacion) as fecha_conciliacion')
+                DB::raw('MAX(conciliacions.fecha_conciliacion) as fecha_conciliacion'),
+                DB::raw('SUM(conciliacions.monto_aplicado) as monto_aplicado')
             )
-            ->with(['movimiento.banco', 'user', 'factura'])
+            ->with(['movimiento.archivo.bankFormat', 'user'])
             ->where('conciliacions.team_id', $this->teamId)
             ->join('movimientos', 'conciliacions.movimiento_id', '=', 'movimientos.id')
-            ->groupBy('conciliacions.group_id', 'conciliacions.movimiento_id', 'conciliacions.user_id', 'conciliacions.factura_id')
+            ->groupBy('conciliacions.group_id', 'conciliacions.movimiento_id', 'conciliacions.user_id')
             ->orderBy('conciliacions.group_id');
+
+        // If we have specific groupIds from the orchestrator, we use them.
+        if (! empty($this->groupIds)) {
+            $query->whereIn('conciliacions.group_id', $this->groupIds);
+
+            return $query;
+        }
 
         if ($this->dateFrom || $this->dateTo) {
             if ($this->dateFrom) {
