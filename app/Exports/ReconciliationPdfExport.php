@@ -211,7 +211,7 @@ class ReconciliationPdfExport implements FromView, WithTitle
     protected function getMatchingGroupIds(): array
     {
         // 1. Groups matching via Invoices
-        $invoiceQuery = Factura::where('team_id', $this->teamId)
+        $invoiceQuery = Factura::where('facturas.team_id', $this->teamId)
             ->join('conciliacions', 'facturas.id', '=', 'conciliacions.factura_id');
 
         $this->applyGenericFilters($invoiceQuery, 'facturas.fecha_emision', 'facturas.monto');
@@ -228,7 +228,7 @@ class ReconciliationPdfExport implements FromView, WithTitle
         $groupIdsFromInvoices = $invoiceQuery->pluck('conciliacions.group_id');
 
         // 2. Groups matching via Movements
-        $movementQuery = Movimiento::where('team_id', $this->teamId)
+        $movementQuery = Movimiento::where('movimientos.team_id', $this->teamId)
             ->join('conciliacions', 'movimientos.id', '=', 'conciliacions.movimiento_id');
 
         $this->applyGenericFilters($movementQuery, 'movimientos.fecha', 'movimientos.monto');

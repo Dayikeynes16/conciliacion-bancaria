@@ -55,7 +55,7 @@ class ReconciliationExport implements WithMultipleSheets
     protected function getMatchingGroupIds(): array
     {
         // 1. Groups matching via Invoices
-        $invoiceQuery = \App\Models\Factura::where('team_id', $this->teamId)
+        $invoiceQuery = \App\Models\Factura::where('facturas.team_id', $this->teamId)
             ->join('conciliacions', 'facturas.id', '=', 'conciliacions.factura_id');
 
         $this->applyGenericFilters($invoiceQuery, 'facturas.fecha_emision', 'facturas.monto');
@@ -72,7 +72,7 @@ class ReconciliationExport implements WithMultipleSheets
         $groupIdsFromInvoices = $invoiceQuery->pluck('conciliacions.group_id');
 
         // 2. Groups matching via Movements
-        $movementQuery = \App\Models\Movimiento::where('team_id', $this->teamId)
+        $movementQuery = \App\Models\Movimiento::where('movimientos.team_id', $this->teamId)
             ->join('conciliacions', 'movimientos.id', '=', 'conciliacions.movimiento_id');
 
         $this->applyGenericFilters($movementQuery, 'movimientos.fecha', 'movimientos.monto');
