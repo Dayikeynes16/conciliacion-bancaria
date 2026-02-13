@@ -21,7 +21,6 @@ class DynamicStatementParser extends AbstractBankParser
         if ($rows->isEmpty()) {
             throw new \Exception('El archivo está vacío.');
         }
-
         // Convert column letters to 0-based indices
         $colMap = [
             'fecha' => $this->colToIndex($this->format->date_column),
@@ -52,6 +51,8 @@ class DynamicStatementParser extends AbstractBankParser
                 $tipoVal = ($colMap['tipo'] !== -1) ? ($row[$colMap['tipo']] ?? '') : '';
 
                 if (! $fechaVal) {
+                    \Illuminate\Support\Facades\Log::debug("Row {$key} rejected: Empty Date Value");
+
                     return null;
                 }
 
@@ -59,6 +60,8 @@ class DynamicStatementParser extends AbstractBankParser
 
                 // Strict check: if date parsing fails, return null (row ignored)
                 if (! $fecha) {
+                    \Illuminate\Support\Facades\Log::debug("Row {$key} rejected: Invalid Date Format ({$fechaVal})");
+
                     return null;
                 }
 
@@ -75,6 +78,8 @@ class DynamicStatementParser extends AbstractBankParser
                     $monto = abs($rawMonto);
 
                     if ($monto == 0) {
+                        \Illuminate\Support\Facades\Log::debug("Row {$key} rejected: Zero Amount");
+
                         return null;
                     }
 
@@ -99,6 +104,8 @@ class DynamicStatementParser extends AbstractBankParser
                     $credit = abs($this->parseAmount($creditVal));
 
                     if ($debit == 0 && $credit == 0) {
+                        \Illuminate\Support\Facades\Log::debug("Row {$key} rejected: Zero Debit/Credit");
+
                         return null;
                     }
 
@@ -122,6 +129,8 @@ class DynamicStatementParser extends AbstractBankParser
                 ];
 
             } catch (\Exception $e) {
+                \Illuminate\Support\Facades\Log::error("Row {$key} Exception: ".$e->getMessage());
+
                 return null;
             }
         });
@@ -130,6 +139,7 @@ class DynamicStatementParser extends AbstractBankParser
         // Slice preserves keys. The key for the start row is $startOffset.
         // We check if $parsed has a non-null value at this offset.
         if (! isset($parsed[$startOffset]) || $parsed[$startOffset] === null) {
+            \Illuminate\Support\Facades\Log::error("DynamicStatementParser: Start Row ({$startOffset}) is invalid or null. Dump of parsed row:", ['row' => $parsed[$startOffset] ?? 'null']);
             throw new \Exception('Formato incorrecto: La Fila Inicial ('.($startOffset + 1).') no contiene datos válidos (Fecha o Monto). Verifique la configuración del formato.');
         }
 

@@ -258,7 +258,7 @@ class ReconciliationController extends Controller
         }
 
         $perPage = $request->input('per_page', 10);
-        if (!in_array($perPage, [10, 25, 50])) {
+        if (! in_array($perPage, [10, 25, 50])) {
             $perPage = 10;
         }
 
@@ -476,6 +476,97 @@ class ReconciliationController extends Controller
                 'movement_direction' => $movementDirection,
             ],
         ]);
+    }
+
+    public function export(Request $request)
+    {
+        $teamId = auth()->user()->current_team_id;
+        $userId = auth()->id();
+
+        $month = $request->input('month');
+        $year = $request->input('year');
+        $dateFrom = $request->input('date_from');
+        $dateTo = $request->input('date_to');
+
+        // Always async for now, unless row count check implemented later.
+        $format = $request->input('format', 'xlsx');
+
+        // Create Request Record
+        $exportRequest = \App\Models\ExportRequest::create([
+            'team_id' => $teamId,
+            'user_id' => $userId,
+            'type' => $format,
+            'status' => 'queued',
+            'filters' => [
+                'month' => $month,
+                'year' => $year,
+                'date_from' => $dateFrom,
+                'date_to' => $dateTo,
+            ],
+        ]);
+
+        // Dispatch Job
+        if ($format === 'pdf') {
+            \App\Jobs\GenerateReconciliationPdfExportJob::dispatch($exportRequest);
+        } else {
+            \App\Jobs\GenerateReconciliationExcelExportJob::dispatch($exportRequest);
+        }
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'id' => $exportRequest->id,
+                'status' => 'queued',
+                'message' => 'Export starting.',
+            ]);
+        }
+
+        // Fallback for non-JSON request (if any legacy link exists)
+        return back()->with('success', 'Exportación iniciada. Verifique el historial en unos momentos.');
+    }
+
+    public function checkExportStatus($id)
+    {
+        $exportRequest = \App\Models\ExportRequest::where('team_id', auth()->user()->current_team_id)
+            ->findOrFail($id);
+
+        if ($exportRequest->user_id !== auth()->id()) {
+            abort(403);
+        }
+
+        // Offline Safeguard: If queued for > 2 minutes, warn user.
+        $isOffline = false;
+        if ($exportRequest->status === 'queued' && $exportRequest->created_at->diffInMinutes(now()) > 2) {
+            $isOffline = true;
+        }
+
+        return response()->json([
+            'status' => $exportRequest->status,
+            'error_message' => $exportRequest->error_message,
+            'is_offline' => $isOffline, // Frontend can check this flag
+        ]);
+    }
+
+    public function downloadExport($id)
+    {
+        $exportRequest = \App\Models\ExportRequest::where('team_id', auth()->user()->current_team_id)
+            ->findOrFail($id);
+
+        if ($exportRequest->user_id !== auth()->id()) {
+            abort(403);
+        }
+
+        if ($exportRequest->status !== 'completed' || ! $exportRequest->file_path) {
+            abort(404, 'File not ready or failed.');
+        }
+
+        if (! \Illuminate\Support\Facades\Storage::exists($exportRequest->file_path)) {
+            abort(404, 'File not found on disk.');
+        }
+
+        return \Illuminate\Support\Facades\Storage::download(
+            $exportRequest->file_path,
+            $exportRequest->file_name
+        );
     }
 
     public function destroy($id)

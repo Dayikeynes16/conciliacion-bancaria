@@ -5,6 +5,12 @@
 
 The Laravel Boost guidelines are specifically curated by Laravel maintainers for this application. These guidelines should be followed closely to enhance the user's satisfaction building Laravel applications.
 
+## Workspace Rule (Source of Truth)
+
+This repository maintains a Source of Truth in docs/SOURCE_OF_TRUTH.md.
+Mandatory Rule: Any change affecting functionality, reconciliation rules, imports/parsers, data model, routes/endpoints, or UI/flow (Inertia Pages/Components) must be reflected in docs/SOURCE_OF_TRUTH.md within the same PR/commit.
+If the change is not documented in docs/SOURCE_OF_TRUTH.md, it is considered incomplete.
+
 ## Foundational Context
 
 This application is a Laravel application and its main Laravel ecosystems package & versions are below. You are an expert with them all. Ensure you abide by these specific packages & versions.
@@ -316,7 +322,7 @@ Route::get('/users', function () {
   it('returns all', function () {
   $response = $this->postJson('/api/docs', []);
 
-        $response->assertSuccessful();
+                    $response->assertSuccessful();
 
     });
     </code-snippet>

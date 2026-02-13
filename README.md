@@ -2,6 +2,8 @@
 
 Aplicación para la conciliación de facturas (XML CFDI) con movimientos bancarios (Estados de Cuenta).
 
+> **DOCUMENTACIÓN OFICIAL (Forensic Audit)**: Consulta [docs/SOURCE_OF_TRUTH.md](docs/SOURCE_OF_TRUTH.md) para la arquitectura detallada, esquema de base de datos y flujos de negocio auditados.
+
 ## Características
 
 - **Multitenancy**: Soporte para múltiples empresas/equipos. Cada usuario pertenece a un equipo (`Team`) y la información se aisla por equipo.

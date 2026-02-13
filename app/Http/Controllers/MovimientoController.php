@@ -55,7 +55,16 @@ class MovimientoController extends Controller
             ->with(['banco', 'bankFormat']) // Eager load format
             ->withCount('movimientos')
             ->latest()
-            ->get();
+            ->get()
+            ->map(function ($file) {
+                // Offline Safeguard
+                $file->is_offline = false;
+                if ($file->estatus === 'pendiente' && $file->created_at->diffInMinutes(now()) > 2) {
+                    $file->is_offline = true;
+                }
+
+                return $file;
+            });
 
         // Fetch individual movements query
         $movementsQuery = \App\Models\Movimiento::query()
@@ -93,10 +102,10 @@ class MovimientoController extends Controller
         $sortBy = $request->input('sort_by', 'fecha');
         $sortOrder = $request->input('sort_order', 'desc');
 
-        if (!in_array($sortBy, ['fecha', 'monto'])) {
+        if (! in_array($sortBy, ['fecha', 'monto'])) {
             $sortBy = 'fecha';
         }
-        if (!in_array($sortOrder, ['asc', 'desc'])) {
+        if (! in_array($sortOrder, ['asc', 'desc'])) {
             $sortOrder = 'desc';
         }
 

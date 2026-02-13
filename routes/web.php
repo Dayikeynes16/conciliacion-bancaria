@@ -43,6 +43,9 @@ Route::middleware('auth')->group(function () {
     Route::delete('/reconciliation/group/{groupId}', [App\Http\Controllers\ReconciliationController::class, 'destroyGroup'])->name('reconciliation.group.destroy');
     Route::get('/reconciliation/history', [App\Http\Controllers\ReconciliationController::class, 'history'])->name('reconciliation.history');
     Route::get('/reconciliation/status', [App\Http\Controllers\ReconciliationController::class, 'status'])->name('reconciliation.status');
+    Route::get('/reconciliation/export', [App\Http\Controllers\ReconciliationController::class, 'export'])->name('reconciliation.export');
+    Route::get('/reconciliation/export/{id}/status', [App\Http\Controllers\ReconciliationController::class, 'checkExportStatus'])->name('reconciliation.export.status');
+    Route::get('/reconciliation/export/{id}/download', [App\Http\Controllers\ReconciliationController::class, 'downloadExport'])->name('reconciliation.export.download');
 
     // Movimientos Routes
     Route::get('/movements', [App\Http\Controllers\MovimientoController::class, 'index'])->name('movements.index');

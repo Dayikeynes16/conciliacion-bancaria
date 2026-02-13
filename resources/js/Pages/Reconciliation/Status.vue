@@ -7,6 +7,8 @@ import StatusTabs from "./Partials/StatusTabs.vue";
 import StatusSummary from "./Partials/StatusSummary.vue";
 import TransactionList from "./Partials/TransactionList.vue";
 import AdvancedFilters from "@/Components/AdvancedFilters.vue";
+import SecondaryButton from "@/Components/SecondaryButton.vue";
+import axios from "axios";
 
 const props = defineProps<{
     conciliatedInvoices: Array<any>;
@@ -68,6 +70,72 @@ const updateParams = (newFilters: any = {}) => {
 watch([invoiceSort, invoiceDirection, movementSort, movementDirection], () =>
     updateParams(),
 );
+
+const exportProcessing = ref(false);
+
+const startExport = async (format: string) => {
+    if (exportProcessing.value) return;
+    exportProcessing.value = true;
+
+    try {
+        const currentFilters = props.filters || {};
+        const params = {
+            format: format,
+            month: currentFilters.month,
+            year: currentFilters.year,
+            search: currentFilters.search,
+            date_from: currentFilters.date_from,
+            date_to: currentFilters.date_to,
+            amount_min: currentFilters.amount_min,
+            amount_max: currentFilters.amount_max,
+        };
+
+        const response = await axios.get(route("reconciliation.export"), {
+            params,
+        });
+
+        if (response.data.id) {
+            pollExport(response.data.id);
+        } else {
+            // Fallback if generic response
+            exportProcessing.value = false;
+        }
+    } catch (error) {
+        console.error(error);
+        exportProcessing.value = false;
+        alert("Error iniciando exportación. Intente de nuevo.");
+    }
+};
+
+const pollExport = (id: number) => {
+    const interval = setInterval(async () => {
+        try {
+            const res = await axios.get(
+                route("reconciliation.export.status", id),
+            );
+
+            if (res.data.status === "completed") {
+                clearInterval(interval);
+                exportProcessing.value = false;
+                window.location.href = route(
+                    "reconciliation.export.download",
+                    id,
+                );
+            } else if (res.data.status === "failed") {
+                clearInterval(interval);
+                exportProcessing.value = false;
+                alert(
+                    "La exportación falló: " +
+                        (res.data.error_message || "Error desconocido"),
+                );
+            }
+        } catch (e) {
+            clearInterval(interval);
+            exportProcessing.value = false;
+            alert("Error consultando estado de exportación.");
+        }
+    }, 2000);
+};
 </script>
 
 <template>
@@ -75,9 +143,31 @@ watch([invoiceSort, invoiceDirection, movementSort, movementDirection], () =>
 
     <AuthenticatedLayout>
         <template #header>
-            <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-                Reporte de Estatus de Conciliación
-            </h2>
+            <div class="flex justify-between items-center bg-transparent">
+                <h2 class="font-semibold text-xl text-gray-800 leading-tight">
+                    Reporte de Estatus
+                </h2>
+                <div class="flex gap-2">
+                    <SecondaryButton
+                        @click="startExport('xlsx')"
+                        :disabled="exportProcessing"
+                    >
+                        {{
+                            exportProcessing
+                                ? "Procesando..."
+                                : "Exportar Excel"
+                        }}
+                    </SecondaryButton>
+                    <SecondaryButton
+                        @click="startExport('pdf')"
+                        :disabled="exportProcessing"
+                    >
+                        {{
+                            exportProcessing ? "Procesando..." : "Exportar PDF"
+                        }}
+                    </SecondaryButton>
+                </div>
+            </div>
         </template>
 
         <div class="py-6">
