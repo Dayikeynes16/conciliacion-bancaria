@@ -28,13 +28,22 @@ class ConciliatedInvoicesSheet implements FromQuery, ShouldAutoSize, WithChunkRe
 
     protected $dateTo;
 
-    public function __construct($teamId, $month, $year, $dateFrom, $dateTo)
+    protected $search;
+
+    protected $amountMin;
+
+    protected $amountMax;
+
+    public function __construct($teamId, $month, $year, $dateFrom, $dateTo, $search = null, $amountMin = null, $amountMax = null)
     {
         $this->teamId = $teamId;
         $this->month = $month;
         $this->year = $year;
         $this->dateFrom = $dateFrom;
         $this->dateTo = $dateTo;
+        $this->search = $search;
+        $this->amountMin = $amountMin;
+        $this->amountMax = $amountMax;
     }
 
     public function query()
@@ -63,6 +72,23 @@ class ConciliatedInvoicesSheet implements FromQuery, ShouldAutoSize, WithChunkRe
         } elseif ($this->month && $this->year) {
             $query->whereMonth('conciliacions.fecha_conciliacion', $this->month)
                 ->whereYear('conciliacions.fecha_conciliacion', $this->year);
+        }
+
+        if ($this->search) {
+            $query->where(function ($q) {
+                $q->where('facturas.nombre', 'like', "%{$this->search}%")
+                    ->orWhere('facturas.rfc', 'like', "%{$this->search}%")
+                    ->orWhere('facturas.folio', 'like', "%{$this->search}%")
+                    ->orWhere('facturas.referencia', 'like', "%{$this->search}%");
+            });
+        }
+
+        if ($this->amountMin) {
+            $query->where('facturas.monto', '>=', $this->amountMin);
+        }
+
+        if ($this->amountMax) {
+            $query->where('facturas.monto', '<=', $this->amountMax);
         }
 
         return $query;

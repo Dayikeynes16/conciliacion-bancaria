@@ -10,26 +10,38 @@ use Maatwebsite\Excel\Concerns\ShouldAutoSize;
 use Maatwebsite\Excel\Concerns\WithEvents;
 use Maatwebsite\Excel\Concerns\WithStyles;
 use Maatwebsite\Excel\Concerns\WithTitle;
-use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 use Maatwebsite\Excel\Events\AfterSheet;
-use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
-class SummarySheet implements FromCollection, ShouldAutoSize, WithTitle, WithStyles, WithEvents
+class SummarySheet implements FromCollection, ShouldAutoSize, WithEvents, WithStyles, WithTitle
 {
     protected $teamId;
+
     protected $month;
+
     protected $year;
+
     protected $dateFrom;
+
     protected $dateTo;
 
-    public function __construct($teamId, $month, $year, $dateFrom, $dateTo)
+    protected $search;
+
+    protected $amountMin;
+
+    protected $amountMax;
+
+    public function __construct($teamId, $month, $year, $dateFrom, $dateTo, $search = null, $amountMin = null, $amountMax = null)
     {
         $this->teamId = $teamId;
         $this->month = $month;
         $this->year = $year;
         $this->dateFrom = $dateFrom;
         $this->dateTo = $dateTo;
+        $this->search = $search;
+        $this->amountMin = $amountMin;
+        $this->amountMax = $amountMax;
     }
 
     public function collection()
@@ -51,22 +63,22 @@ class SummarySheet implements FromCollection, ShouldAutoSize, WithTitle, WithSty
         // 3. Reconciliations (Totals)
         $conciliacionQuery = Conciliacion::where('conciliacions.team_id', $this->teamId);
         $this->applyFilters($conciliacionQuery, 'fecha_conciliacion');
-        
+
         $reconciliationCount = (clone $conciliacionQuery)->distinct('group_id')->count('group_id');
-        
+
         // Sum of applied amounts (Total Conciliado)
         $totalConciliadoInvoices = (clone $conciliacionQuery)->sum('monto_aplicado');
-        
+
         // Sum of actual movement amounts linked in these conciliations
         $totalConciliadoMovements = (clone $conciliacionQuery)
             ->join('movimientos', 'conciliacions.movimiento_id', '=', 'movimientos.id')
             ->sum('monto_aplicado'); // In this system, monto_aplicado is what ties them.
-            
+
         // However, for consistency with user request, we might want the sum of the MOVEMENTS themselves
         // that are touched by these conciliations in this period.
         $movementIds = (clone $conciliacionQuery)->pluck('movimiento_id')->unique();
         $sumOfMovements = Movimiento::whereIn('id', $movementIds)->sum('monto');
-        
+
         $facturaIds = (clone $conciliacionQuery)->pluck('factura_id')->unique();
         $sumOfFacturas = Factura::whereIn('id', $facturaIds)->sum('monto');
 
@@ -104,6 +116,37 @@ class SummarySheet implements FromCollection, ShouldAutoSize, WithTitle, WithSty
         } elseif ($this->month && $this->year) {
             $query->whereMonth($dateColumn, $this->month)->whereYear($dateColumn, $this->year);
         }
+
+        if ($this->search) {
+            $query->where(function ($q) use ($query) {
+                $model = $query->getModel();
+                if ($model instanceof \App\Models\Factura) {
+                    $q->where('nombre', 'like', "%{$this->search}%")
+                        ->orWhere('rfc', 'like', "%{$this->search}%")
+                        ->orWhere('folio', 'like', "%{$this->search}%")
+                        ->orWhere('referencia', 'like', "%{$this->search}%");
+                } elseif ($model instanceof \App\Models\Movimiento) {
+                    $q->where('descripcion', 'like', "%{$this->search}%")
+                        ->orWhere('referencia', 'like', "%{$this->search}%");
+                } elseif ($model instanceof \App\Models\Conciliacion) {
+                    // For conciliations, we search in both relations if joined,
+                    // but for simplicity in summary we just use the group context?
+                    // Let's at least try to match search if relevant.
+                }
+            });
+        }
+
+        if ($this->amountMin || $this->amountMax) {
+            $model = $query->getModel();
+            $col = ($model instanceof \App\Models\Conciliacion) ? 'monto_aplicado' : 'monto';
+            
+            if ($this->amountMin) {
+                $query->where($col, '>=', $this->amountMin);
+            }
+            if ($this->amountMax) {
+                $query->where($col, '<=', $this->amountMax);
+            }
+        }
     }
 
     public function title(): string
@@ -128,7 +171,7 @@ class SummarySheet implements FromCollection, ShouldAutoSize, WithTitle, WithSty
         return [
             AfterSheet::class => function (AfterSheet $event) {
                 $sheet = $event->sheet->getDelegate();
-                
+
                 // Style Header 1
                 $sheet->getStyle('A1:B1')->applyFromArray([
                     'fill' => [

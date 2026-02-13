@@ -27,13 +27,22 @@ class PendingMovementsSheet implements FromQuery, ShouldAutoSize, WithChunkReadi
 
     protected $dateTo;
 
-    public function __construct($teamId, $month, $year, $dateFrom, $dateTo)
+    protected $search;
+
+    protected $amountMin;
+
+    protected $amountMax;
+
+    public function __construct($teamId, $month, $year, $dateFrom, $dateTo, $search = null, $amountMin = null, $amountMax = null)
     {
         $this->teamId = $teamId;
         $this->month = $month;
         $this->year = $year;
         $this->dateFrom = $dateFrom;
         $this->dateTo = $dateTo;
+        $this->search = $search;
+        $this->amountMin = $amountMin;
+        $this->amountMax = $amountMax;
     }
 
     public function query()
@@ -56,6 +65,21 @@ class PendingMovementsSheet implements FromQuery, ShouldAutoSize, WithChunkReadi
         } elseif ($this->month && $this->year) {
             $query->whereMonth('fecha', $this->month)
                 ->whereYear('fecha', $this->year);
+        }
+
+        if ($this->search) {
+            $query->where(function ($q) {
+                $q->where('descripcion', 'like', "%{$this->search}%")
+                    ->orWhere('referencia', 'like', "%{$this->search}%");
+            });
+        }
+
+        if ($this->amountMin) {
+            $query->where('monto', '>=', $this->amountMin);
+        }
+
+        if ($this->amountMax) {
+            $query->where('monto', '<=', $this->amountMax);
         }
 
         return $query;

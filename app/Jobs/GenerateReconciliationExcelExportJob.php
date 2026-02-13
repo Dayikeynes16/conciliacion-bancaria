@@ -41,6 +41,9 @@ class GenerateReconciliationExcelExportJob implements ShouldQueue
             $year = $filters['year'] ?? null;
             $dateFrom = $filters['date_from'] ?? null;
             $dateTo = $filters['date_to'] ?? null;
+            $search = $filters['search'] ?? null;
+            $amountMin = $filters['amount_min'] ?? null;
+            $amountMax = $filters['amount_max'] ?? null;
 
             // Generate filename unique to prevent collisions
             // Format: exports/{team_id}/{user_id}/{uuid}.xlsx
@@ -50,7 +53,7 @@ class GenerateReconciliationExcelExportJob implements ShouldQueue
             // 2. Generate Excel
             // Using store() stores it in the default disk (local or s3)
             Excel::store(
-                new ReconciliationExport($teamId, $month, $year, $dateFrom, $dateTo),
+                new ReconciliationExport($teamId, $month, $year, $dateFrom, $dateTo, $search, $amountMin, $amountMax),
                 $path
             );
 

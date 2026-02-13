@@ -259,7 +259,9 @@ class ReconciliationController extends Controller
         }
 
         $perPage = $request->input('per_page', 10);
-        if (! in_array($perPage, [10, 25, 50])) {
+        if ($perPage === 'all') {
+            $perPage = 999999;
+        } elseif (! in_array($perPage, [10, 25, 50])) {
             $perPage = 10;
         }
 
@@ -489,6 +491,9 @@ class ReconciliationController extends Controller
         $year = $request->input('year');
         $dateFrom = $request->input('date_from');
         $dateTo = $request->input('date_to');
+        $search = $request->input('search');
+        $amountMin = $request->input('amount_min');
+        $amountMax = $request->input('amount_max');
 
         // Always async for now, unless row count check implemented later.
         $format = $request->input('format', 'xlsx');
@@ -504,6 +509,9 @@ class ReconciliationController extends Controller
                 'year' => $year,
                 'date_from' => $dateFrom,
                 'date_to' => $dateTo,
+                'search' => $search,
+                'amount_min' => $amountMin,
+                'amount_max' => $amountMax,
             ],
         ]);
 

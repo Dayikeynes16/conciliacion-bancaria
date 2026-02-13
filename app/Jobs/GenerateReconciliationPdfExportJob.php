@@ -40,12 +40,15 @@ class GenerateReconciliationPdfExportJob implements ShouldQueue
             $year = $filters['year'] ?? null;
             $dateFrom = $filters['date_from'] ?? null;
             $dateTo = $filters['date_to'] ?? null;
+            $search = $filters['search'] ?? null;
+            $amountMin = $filters['amount_min'] ?? null;
+            $amountMax = $filters['amount_max'] ?? null;
 
             $uuid = \Illuminate\Support\Str::uuid();
             $path = "exports/{$teamId}/{$this->exportRequest->user_id}/{$uuid}.pdf";
 
             // Generate Data
-            $export = new ReconciliationPdfExport($teamId, $month, $year, $dateFrom, $dateTo);
+            $export = new ReconciliationPdfExport($teamId, $month, $year, $dateFrom, $dateTo, $search, $amountMin, $amountMax);
             $data = $export->view()->getData();
 
             // Render PDF

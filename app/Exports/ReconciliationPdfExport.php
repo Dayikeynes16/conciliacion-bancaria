@@ -22,13 +22,22 @@ class ReconciliationPdfExport implements FromView, WithTitle
 
     protected $dateTo;
 
-    public function __construct($teamId, $month, $year, $dateFrom, $dateTo)
+    protected $search;
+
+    protected $amountMin;
+
+    protected $amountMax;
+
+    public function __construct($teamId, $month, $year, $dateFrom, $dateTo, $search = null, $amountMin = null, $amountMax = null)
     {
         $this->teamId = $teamId;
         $this->month = $month;
         $this->year = $year;
         $this->dateFrom = $dateFrom;
         $this->dateTo = $dateTo;
+        $this->search = $search;
+        $this->amountMin = $amountMin;
+        $this->amountMax = $amountMax;
     }
 
     public function view(): View
@@ -52,6 +61,22 @@ class ReconciliationPdfExport implements FromView, WithTitle
             if ($this->year) {
                 $conciliatedQuery->whereYear('conciliacions.fecha_conciliacion', $this->year);
             }
+        }
+
+        if ($this->search) {
+            $conciliatedQuery->where(function ($q) {
+                $q->where('facturas.nombre', 'like', "%{$this->search}%")
+                    ->orWhere('facturas.rfc', 'like', "%{$this->search}%")
+                    ->orWhere('movimientos.descripcion', 'like', "%{$this->search}%");
+            });
+        }
+
+        if ($this->amountMin) {
+            $conciliatedQuery->where('facturas.monto', '>=', $this->amountMin);
+        }
+
+        if ($this->amountMax) {
+            $conciliatedQuery->where('facturas.monto', '<=', $this->amountMax);
         }
 
         // Get all group IDs first to avoid massive join duplication issues if we just get()
@@ -96,6 +121,22 @@ class ReconciliationPdfExport implements FromView, WithTitle
                 $pendingInvoicesQuery->whereYear('fecha_emision', $this->year);
             }
         }
+
+        if ($this->search) {
+            $pendingInvoicesQuery->where(function ($q) {
+                $q->where('nombre', 'like', "%{$this->search}%")
+                    ->orWhere('rfc', 'like', "%{$this->search}%")
+                    ->orWhere('folio', 'like', "%{$this->search}%");
+            });
+        }
+
+        if ($this->amountMin) {
+            $pendingInvoicesQuery->where('monto', '>=', $this->amountMin);
+        }
+
+        if ($this->amountMax) {
+            $pendingInvoicesQuery->where('monto', '<=', $this->amountMax);
+        }
         $pendingInvoices = $pendingInvoicesQuery->orderBy('fecha_emision', 'desc')->lazy();
 
         // --- 3. Fetch Pending Movements ---
@@ -118,6 +159,21 @@ class ReconciliationPdfExport implements FromView, WithTitle
             if ($this->year) {
                 $pendingMovementsQuery->whereYear('fecha', $this->year);
             }
+        }
+
+        if ($this->search) {
+            $pendingMovementsQuery->where(function ($q) {
+                $q->where('descripcion', 'like', "%{$this->search}%")
+                    ->orWhere('referencia', 'like', "%{$this->search}%");
+            });
+        }
+
+        if ($this->amountMin) {
+            $pendingMovementsQuery->where('monto', '>=', $this->amountMin);
+        }
+
+        if ($this->amountMax) {
+            $pendingMovementsQuery->where('monto', '<=', $this->amountMax);
         }
         $pendingMovements = $pendingMovementsQuery->orderBy('fecha', 'desc')->lazy();
 

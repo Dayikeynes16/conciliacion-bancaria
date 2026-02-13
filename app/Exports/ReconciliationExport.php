@@ -21,23 +21,32 @@ class ReconciliationExport implements WithMultipleSheets
 
     protected $dateTo;
 
-    public function __construct($teamId, $month, $year, $dateFrom, $dateTo)
+    protected $search;
+
+    protected $amountMin;
+
+    protected $amountMax;
+
+    public function __construct($teamId, $month, $year, $dateFrom, $dateTo, $search = null, $amountMin = null, $amountMax = null)
     {
         $this->teamId = $teamId;
         $this->month = $month;
         $this->year = $year;
         $this->dateFrom = $dateFrom;
         $this->dateTo = $dateTo;
+        $this->search = $search;
+        $this->amountMin = $amountMin;
+        $this->amountMax = $amountMax;
     }
 
     public function sheets(): array
     {
         return [
-            new SummarySheet($this->teamId, $this->month, $this->year, $this->dateFrom, $this->dateTo),
-            new ConciliatedInvoicesSheet($this->teamId, $this->month, $this->year, $this->dateFrom, $this->dateTo),
-            new ConciliatedMovementsSheet($this->teamId, $this->month, $this->year, $this->dateFrom, $this->dateTo),
-            new PendingInvoicesSheet($this->teamId, $this->month, $this->year, $this->dateFrom, $this->dateTo),
-            new PendingMovementsSheet($this->teamId, $this->month, $this->year, $this->dateFrom, $this->dateTo),
+            new SummarySheet($this->teamId, $this->month, $this->year, $this->dateFrom, $this->dateTo, $this->search, $this->amountMin, $this->amountMax),
+            new ConciliatedInvoicesSheet($this->teamId, $this->month, $this->year, $this->dateFrom, $this->dateTo, $this->search, $this->amountMin, $this->amountMax),
+            new ConciliatedMovementsSheet($this->teamId, $this->month, $this->year, $this->dateFrom, $this->dateTo, $this->search, $this->amountMin, $this->amountMax),
+            new PendingInvoicesSheet($this->teamId, $this->month, $this->year, $this->dateFrom, $this->dateTo, $this->search, $this->amountMin, $this->amountMax),
+            new PendingMovementsSheet($this->teamId, $this->month, $this->year, $this->dateFrom, $this->dateTo, $this->search, $this->amountMin, $this->amountMax),
         ];
     }
 }

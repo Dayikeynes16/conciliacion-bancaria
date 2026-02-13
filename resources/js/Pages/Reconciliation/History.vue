@@ -203,6 +203,7 @@ const closeModal = () => {
                             <option :value="10">10 por pág</option>
                             <option :value="25">25 por pág</option>
                             <option :value="50">50 por pág</option>
+                            <option value="all">Todos</option>
                         </select>
                     </div>
 

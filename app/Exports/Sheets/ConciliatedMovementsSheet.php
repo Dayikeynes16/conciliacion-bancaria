@@ -28,13 +28,22 @@ class ConciliatedMovementsSheet implements FromQuery, ShouldAutoSize, WithChunkR
 
     protected $dateTo;
 
-    public function __construct($teamId, $month, $year, $dateFrom, $dateTo)
+    protected $search;
+
+    protected $amountMin;
+
+    protected $amountMax;
+
+    public function __construct($teamId, $month, $year, $dateFrom, $dateTo, $search = null, $amountMin = null, $amountMax = null)
     {
         $this->teamId = $teamId;
         $this->month = $month;
         $this->year = $year;
         $this->dateFrom = $dateFrom;
         $this->dateTo = $dateTo;
+        $this->search = $search;
+        $this->amountMin = $amountMin;
+        $this->amountMax = $amountMax;
     }
 
     public function query()
@@ -63,6 +72,21 @@ class ConciliatedMovementsSheet implements FromQuery, ShouldAutoSize, WithChunkR
         } elseif ($this->month && $this->year) {
             $query->whereMonth('conciliacions.fecha_conciliacion', $this->month)
                 ->whereYear('conciliacions.fecha_conciliacion', $this->year);
+        }
+
+        if ($this->search) {
+            $query->where(function ($q) {
+                $q->where('movimientos.descripcion', 'like', "%{$this->search}%")
+                    ->orWhere('movimientos.referencia', 'like', "%{$this->search}%");
+            });
+        }
+
+        if ($this->amountMin) {
+            $query->where('movimientos.monto', '>=', $this->amountMin);
+        }
+
+        if ($this->amountMax) {
+            $query->where('movimientos.monto', '<=', $this->amountMax);
         }
 
         return $query;

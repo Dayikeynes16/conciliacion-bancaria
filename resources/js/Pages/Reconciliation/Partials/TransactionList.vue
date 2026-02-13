@@ -66,6 +66,9 @@ const formatDate = (dateString: string) => {
                 >
                     {{ items.length }} items
                 </span>
+
+                <!-- Header Actions Slot -->
+                <slot name="actions" />
             </div>
 
             <!-- Sort Button -->

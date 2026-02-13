@@ -5,6 +5,7 @@ import InputError from '@/Components/InputError.vue';
 import InputLabel from '@/Components/InputLabel.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import TextInput from '@/Components/TextInput.vue';
+import PasswordInput from '@/Components/PasswordInput.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
 
 defineProps<{
@@ -62,10 +63,9 @@ const submit = () => {
 
             <div>
                 <InputLabel for="password" value="Contraseña" class="mb-1" />
-                <TextInput
+                <PasswordInput
                     id="password"
-                    type="password"
-                    class="mt-1 block w-full rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 shadow-sm transition-all"
+                    class="mt-1 block w-full rounded-lg"
                     v-model="form.password"
                     required
                     autocomplete="current-password"
