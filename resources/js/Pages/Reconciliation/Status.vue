@@ -25,6 +25,8 @@ const props = defineProps<{
         date_to?: string;
         amount_min?: string;
         amount_max?: string;
+        month?: string | number;
+        year?: string | number;
         invoice_sort?: string;
         invoice_direction?: string;
         movement_sort?: string;
