@@ -154,8 +154,8 @@ class FileUploadController extends Controller
                         // Store validation copy
                         $ext = $file->getClientOriginalExtension();
                         $tempName = 'validate_'.Str::random(10).'.'.$ext;
-                        $tempPath = $file->storeAs('temp', $tempName);
-                        $absPath = Storage::path($tempPath);
+                        $tempPath = $file->storeAs('temp', $tempName, 'local');
+                        $absPath = Storage::disk('local')->path($tempPath);
 
                         $previewMovements = $validatorParser->parse($absPath);
 
@@ -177,8 +177,8 @@ class FileUploadController extends Controller
 
                         return back()->with('toasts', $toasts);
                     } finally {
-                        if ($tempPath && Storage::exists($tempPath)) {
-                            Storage::delete($tempPath);
+                        if ($tempPath && Storage::disk('local')->exists($tempPath)) {
+                            Storage::disk('local')->delete($tempPath);
                         }
                     }
                     // ------------------------------

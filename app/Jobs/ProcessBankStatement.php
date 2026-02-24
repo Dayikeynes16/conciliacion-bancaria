@@ -34,10 +34,15 @@ class ProcessBankStatement implements ShouldQueue
      */
     public function handle(): void
     {
+        $tempFile = null;
+
         try {
             $this->archivo->update(['estatus' => 'procesando']);
 
-            $fullPath = Storage::path($this->archivo->path);
+            // Download from Storage (works with any disk: local, S3, etc.) to a local temp file
+            $extension = pathinfo($this->archivo->path, PATHINFO_EXTENSION);
+            $tempFile = tempnam(sys_get_temp_dir(), 'statement_').'.'.$extension;
+            file_put_contents($tempFile, Storage::get($this->archivo->path));
 
             // Retrieve Bank via Archivo relationship
             $this->archivo->load('banco', 'bankFormat');
@@ -61,7 +66,7 @@ class ProcessBankStatement implements ShouldQueue
                 $parser = StatementParserFactory::make($this->archivo->banco->codigo, $this->teamId);
             }
 
-            $movements = $parser->parse($fullPath);
+            $movements = $parser->parse($tempFile);
 
             if (empty($movements)) {
                 throw new \Exception('El archivo fue procesado pero no se encontraron movimientos válidos. Verifique la configuración del formato.');
@@ -99,6 +104,11 @@ class ProcessBankStatement implements ShouldQueue
             Log::error("Error processing Statement {$this->archivo->id}: ".$e->getMessage());
             $this->archivo->update(['estatus' => 'fallido']);
             $this->fail($e);
+        } finally {
+            // Clean up temp file
+            if ($tempFile && file_exists($tempFile)) {
+                unlink($tempFile);
+            }
         }
     }
 }
