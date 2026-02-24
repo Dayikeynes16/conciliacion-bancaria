@@ -11,7 +11,6 @@ use App\Services\Parsers\StatementParserFactory;
 use App\Services\Xml\CfdiParserService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -129,31 +128,20 @@ class FileUploadController extends Controller
                     // 1. Resolve BankFormat
                     $format = \App\Models\BankFormat::find($bankCode);
 
-                    if ($format) {
-                        $bankFormatId = $format->id;
-
-                        // 2. Heuristic: Find Banco by Name (e.g. "BBVA Excel" -> matches "BBVA")
-                        // This is imperfect but bridges the gap since BankFormat is not linked to Banco in DB.
-                        $banco = Banco::where('nombre', 'LIKE', '%'.$format->name.'%')
-                            ->orWhere('nombre', 'LIKE', '%'.explode(' ', $format->name)[0].'%')
-                            ->first();
-
-                        if ($banco) {
-                            $bancoId = $banco->id;
-                        }
+                    if (! $format) {
+                        throw new \Exception('El formato bancario seleccionado no existe.');
                     }
 
-                    // 3. Fallback: If we couldn't resolve a Bank via Format, use the first available Bank.
-                    // We MUST have a banco_id to create an Archivo/Movimiento.
-                    if (! $bancoId) {
-                        $banco = Banco::first();
-                        if ($banco) {
-                            $bancoId = $banco->id;
-                            Log::warning("FileUpload: Could not resolve Bank from Format '{$bankCode}'. Defaulting to Bank ID {$banco->id}.");
-                        } else {
-                            throw new \Exception('No hay bancos configurados en el sistema.');
-                        }
-                    }
+                    $bankFormatId = $format->id;
+
+                    // 2. Resolve or auto-create the Banco from the BankFormat name.
+                    // This bridges BankFormat (user-configured) with Banco (FK required by Movimiento).
+                    $bancoName = strtoupper(explode(' ', trim($format->name))[0]);
+                    $banco = Banco::firstOrCreate(
+                        ['codigo' => $bancoName],
+                        ['nombre' => $format->name, 'codigo' => $bancoName, 'estatus' => 'activo']
+                    );
+                    $bancoId = $banco->id;
 
                     // --- SYNCHRONOUS VALIDATION ---
                     // Parse the file to ensure it matches the selected format BEFORE queuing/storing.
