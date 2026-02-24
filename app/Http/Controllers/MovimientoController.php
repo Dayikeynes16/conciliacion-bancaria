@@ -55,7 +55,16 @@ class MovimientoController extends Controller
             ->with(['banco', 'bankFormat']) // Eager load format
             ->withCount('movimientos')
             ->latest()
-            ->get();
+            ->get()
+            ->map(function ($file) {
+                // Offline Safeguard
+                $file->is_offline = false;
+                if ($file->estatus === 'pendiente' && $file->created_at->diffInMinutes(now()) > 2) {
+                    $file->is_offline = true;
+                }
+
+                return $file;
+            });
 
         // Fetch individual movements query
         $movementsQuery = \App\Models\Movimiento::query()
@@ -93,16 +102,24 @@ class MovimientoController extends Controller
         $sortBy = $request->input('sort_by', 'fecha');
         $sortOrder = $request->input('sort_order', 'desc');
 
-        if (!in_array($sortBy, ['fecha', 'monto'])) {
+        if (! in_array($sortBy, ['fecha', 'monto', 'bank'])) {
             $sortBy = 'fecha';
         }
-        if (!in_array($sortOrder, ['asc', 'desc'])) {
+        if (! in_array($sortOrder, ['asc', 'desc'])) {
             $sortOrder = 'desc';
         }
 
-        $movements = $movementsQuery->with(['archivo.banco'])
+        if ($sortBy === 'bank') {
+            $movementsQuery->join('archivos', 'movimientos.file_id', '=', 'archivos.id')
+                ->leftJoin('bank_formats', 'archivos.bank_format_id', '=', 'bank_formats.id')
+                ->orderBy('bank_formats.name', $sortOrder)
+                ->select('movimientos.*');
+        } else {
+            $movementsQuery->orderBy($sortBy, $sortOrder);
+        }
+
+        $movements = $movementsQuery->with(['archivo.banco', 'archivo.bankFormat'])
             ->withCount('conciliaciones')
-            ->orderBy($sortBy, $sortOrder)
             ->paginate($perPage)
             ->withQueryString();
 

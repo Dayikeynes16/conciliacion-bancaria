@@ -39,22 +39,25 @@ const fetchFormats = async () => {
 };
 
 // Fetch on mount/open
-import { watch } from 'vue';
-watch(() => props.show, (newVal) => {
-    if (newVal) {
-        fetchFormats().then(() => {
-             // Auto-select first format if available and none selected
-             if (bankFormats.value.length > 0 && !form.bank_code) {
-                 form.bank_code = bankFormats.value[0].id;
-             }
-        });
-    }
-});
+import { watch } from "vue";
+watch(
+    () => props.show,
+    (newVal) => {
+        if (newVal) {
+            fetchFormats().then(() => {
+                // Auto-select first format if available and none selected
+                if (bankFormats.value.length > 0 && !form.bank_code) {
+                    form.bank_code = bankFormats.value[0].id;
+                }
+            });
+        }
+    },
+);
 
 const goToCreateFormat = () => {
     // Close modal first? Or just navigate.
     // Navigation will unmount this anyway.
-    router.visit(route('bank-formats.create'));
+    router.visit(route("bank-formats.create"));
 };
 
 const uploadState = reactive({
@@ -141,22 +144,35 @@ const processQueue = async () => {
             });
 
             if (response.data.success) {
-                if (response.data.processed_xml_count > 0) {
+                // Backend now returns 'xml_processed' for Queued items, and 'xml_xml_duplicates' for Duplicates found Sync.
+                // We trust these counters.
+
+                if (response.data.results.xml_processed > 0) {
                     uploadState.successCount++;
-                } else {
-                    // Check strict duplicates or errors in results
-                    if (response.data.results.xml_xml_duplicates > 0) {
-                        uploadState.logs.push(`Duplicado: ${file.name}`);
-                        uploadState.duplicateCount++;
+                } else if (response.data.results.xml_xml_duplicates > 0) {
+                    uploadState.logs.push(`Duplicado: ${file.name}`);
+                    uploadState.duplicateCount++;
+                } else if (
+                    response.data.results.xml_other_errors > 0 ||
+                    (response.data.results.file_errors &&
+                        response.data.results.file_errors.length > 0)
+                ) {
+                    // Logic for errors
+                    if (
+                        response.data.results.file_errors &&
+                        response.data.results.file_errors.length > 0
+                    ) {
+                        response.data.results.file_errors.forEach((err) =>
+                            uploadState.logs.push(err),
+                        );
                     } else {
-                        // Check for specific error message returned from backend
-                        if (response.data.results.file_errors && response.data.results.file_errors.length > 0) {
-                             response.data.results.file_errors.forEach(err => uploadState.logs.push(err));
-                        } else {
-                             uploadState.logs.push(`Error: ${file.name}`);
-                        }
-                        uploadState.errorCount++;
+                        uploadState.logs.push(`Error: ${file.name}`);
                     }
+                    uploadState.errorCount++;
+                } else {
+                    // Fallback if success=true but no counters (shouldn't happen with new controller logic)
+                    // Treat as success/queued?
+                    uploadState.successCount++;
                 }
             } else {
                 uploadState.errorCount++;
@@ -221,8 +237,22 @@ const processQueue = async () => {
         } catch (error) {
             console.error(error);
             uploadState.errorCount++;
+
+            let errorMsg = error.message;
+            if (error.response && error.response.data) {
+                // If we sent back specific toasts/results in 422
+                if (error.response.data.toasts) {
+                    const errorToast = error.response.data.toasts.find(
+                        (t) => t.type === "error",
+                    );
+                    if (errorToast) errorMsg = errorToast.message;
+                } else if (error.response.data.message) {
+                    errorMsg = error.response.data.message;
+                }
+            }
+
             uploadState.logs.push(
-                `Error al subir Estado de Cuenta: ${error.message}`,
+                `Error al subir Estado de Cuenta: ${errorMsg}`,
             );
         }
     }
@@ -232,7 +262,9 @@ const processQueue = async () => {
     // Final Summary to User before optional reload
     // We will NOT auto-reload immediately if there are errors/duplicates, so the user can see the report
     // Just refresh data in background
-    router.reload({ only: ["files", "toasts", "flash", "stats", "recentActivity", "errors"] });
+    router.reload({
+        only: ["files", "toasts", "flash", "stats", "recentActivity", "errors"],
+    });
 };
 
 const updateProgress = () => {
@@ -281,9 +313,9 @@ const submit = () => {
                             for="xml-dropzone"
                             class="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer transition duration-150"
                             :class="[
-                                isDraggingXml 
-                                    ? 'border-blue-500 bg-blue-50 dark:bg-gray-600 dark:border-blue-400' 
-                                    : 'border-gray-300 bg-gray-50 hover:bg-gray-100 dark:bg-gray-700 dark:hover:bg-gray-600 dark:border-gray-600 dark:hover:border-gray-500'
+                                isDraggingXml
+                                    ? 'border-blue-500 bg-blue-50 dark:bg-gray-600 dark:border-blue-400'
+                                    : 'border-gray-300 bg-gray-50 hover:bg-gray-100 dark:bg-gray-700 dark:hover:bg-gray-600 dark:border-gray-600 dark:hover:border-gray-500',
                             ]"
                             @dragover.prevent="isDraggingXml = true"
                             @dragleave.prevent="isDraggingXml = false"
@@ -376,12 +408,18 @@ const submit = () => {
                                 v-model="form.bank_code"
                                 class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
                             >
-                                <option value="" disabled>Selecciona un formato</option>
-                                <option v-for="format in bankFormats" :key="format.id" :value="format.id">
+                                <option value="" disabled>
+                                    Selecciona un formato
+                                </option>
+                                <option
+                                    v-for="format in bankFormats"
+                                    :key="format.id"
+                                    :value="format.id"
+                                >
                                     {{ format.name }}
                                 </option>
                             </select>
-                            <button 
+                            <button
                                 type="button"
                                 @click="goToCreateFormat"
                                 class="bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200 font-bold py-2 px-4 rounded"
@@ -390,8 +428,11 @@ const submit = () => {
                                 +
                             </button>
                         </div>
-                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                            ¿Tu banco no está en la lista? Haz clic en "+" para crear un formato personalizado.
+                        <p
+                            class="mt-1 text-xs text-gray-500 dark:text-gray-400"
+                        >
+                            ¿Tu banco no está en la lista? Haz clic en "+" para
+                            crear un formato personalizado.
                         </p>
 
                         <p
@@ -406,9 +447,9 @@ const submit = () => {
                             for="xlsx-dropzone"
                             class="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer transition duration-150"
                             :class="[
-                                isDraggingXlsx 
-                                    ? 'border-blue-500 bg-blue-50 dark:bg-gray-600 dark:border-blue-400' 
-                                    : 'border-gray-300 bg-gray-50 hover:bg-gray-100 dark:bg-gray-700 dark:hover:bg-gray-600 dark:border-gray-600 dark:hover:border-gray-500'
+                                isDraggingXlsx
+                                    ? 'border-blue-500 bg-blue-50 dark:bg-gray-600 dark:border-blue-400'
+                                    : 'border-gray-300 bg-gray-50 hover:bg-gray-100 dark:bg-gray-700 dark:hover:bg-gray-600 dark:border-gray-600 dark:hover:border-gray-500',
                             ]"
                             @dragover.prevent="isDraggingXlsx = true"
                             @dragleave.prevent="isDraggingXlsx = false"
@@ -537,7 +578,10 @@ const submit = () => {
 
                 <div class="mt-6 flex justify-end">
                     <SecondaryButton
-                        v-if="uploadState.isProcessing || uploadState.totalFiles === 0"
+                        v-if="
+                            uploadState.isProcessing ||
+                            uploadState.totalFiles === 0
+                        "
                         @click="close"
                         class="mr-3"
                         :disabled="uploadState.isProcessing"
@@ -555,9 +599,14 @@ const submit = () => {
                             uploadState.totalFiles === 0
                         "
                         :class="{
-                            'opacity-25': (!form.files.length && !form.statement) || (form.statement && !form.bank_code),
+                            'opacity-25':
+                                (!form.files.length && !form.statement) ||
+                                (form.statement && !form.bank_code),
                         }"
-                        :disabled="(!form.files.length && !form.statement) || (form.statement && !form.bank_code)"
+                        :disabled="
+                            (!form.files.length && !form.statement) ||
+                            (form.statement && !form.bank_code)
+                        "
                     >
                         Iniciar Carga
                     </PrimaryButton>

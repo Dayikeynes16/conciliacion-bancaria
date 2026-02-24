@@ -8,6 +8,7 @@ class Factura extends Model
 {
     use \App\Models\Traits\HasCreator;
     use \App\Models\Traits\TeamOwned;
+    use \Illuminate\Database\Eloquent\Factories\HasFactory;
 
     protected $fillable = [
         'user_id',

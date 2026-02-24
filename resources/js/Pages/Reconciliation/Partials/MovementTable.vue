@@ -13,6 +13,7 @@ defineProps<{
             archivo?: {
                 original_name?: string;
                 banco?: { nombre: string };
+                bank_format?: { name: string; color: string };
             };
         }>;
         links: Array<any>;
@@ -61,7 +62,20 @@ const formatCurrency = (amount: number) => {
                         class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400"
                     >
                         <tr>
-                            <th class="py-3 px-6">{{ $t("BANCO") }}</th>
+                            <th
+                                class="py-3 px-6 cursor-pointer hover:text-gray-900 dark:hover:text-gray-200"
+                                @click="emit('sort-change', 'bank')"
+                            >
+                                <div class="flex items-center">
+                                    {{ $t("BANCO") }}
+                                    <span v-if="sortBy === 'bank'" class="ml-1">
+                                        <template v-if="sortOrder === 'asc'"
+                                            >↑</template
+                                        >
+                                        <template v-else>↓</template>
+                                    </span>
+                                </div>
+                            </th>
                             <th
                                 class="py-3 px-6 cursor-pointer hover:text-gray-900 dark:hover:text-gray-200"
                                 @click="emit('sort-change', 'fecha')"
@@ -110,11 +124,35 @@ const formatCurrency = (amount: number) => {
                             <td class="py-4 px-6">
                                 <div class="flex flex-col">
                                     <span
-                                        class="text-xs font-bold text-indigo-600"
-                                        >{{
-                                            mov.archivo?.banco?.nombre || "N/A"
-                                        }}</span
+                                        class="text-[10px] font-bold px-1.5 py-0.5 rounded border inline-block w-fit mb-1"
+                                        :style="
+                                            mov.archivo?.bank_format?.color
+                                                ? {
+                                                      backgroundColor:
+                                                          mov.archivo
+                                                              .bank_format
+                                                              .color + '15',
+                                                      color: mov.archivo
+                                                          .bank_format.color,
+                                                      borderColor:
+                                                          mov.archivo
+                                                              .bank_format
+                                                              .color + '30',
+                                                  }
+                                                : {}
+                                        "
+                                        :class="{
+                                            'text-indigo-600':
+                                                !mov.archivo?.bank_format
+                                                    ?.color,
+                                        }"
                                     >
+                                        {{
+                                            mov.archivo?.bank_format?.name ||
+                                            mov.archivo?.banco?.nombre ||
+                                            "N/A"
+                                        }}
+                                    </span>
                                     <span class="text-[10px] text-gray-400">{{
                                         mov.archivo?.original_name || "Archivo"
                                     }}</span>

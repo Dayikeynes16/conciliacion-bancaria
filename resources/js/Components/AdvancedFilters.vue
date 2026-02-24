@@ -163,7 +163,9 @@ watch(filterForm, updateFilters, { deep: true });
                 <div class="w-full md:w-auto">
                     <slot name="footer" />
                 </div>
-                <div class="flex space-x-3 w-full md:w-auto justify-end">
+                <div class="flex space-x-3 w-full md:w-auto justify-end items-center">
+                    <slot name="actions" />
+                    <div class="h-6 w-px bg-gray-200 dark:bg-gray-700 mx-1" v-if="$slots.actions"></div>
                     <SecondaryButton @click="clearFilters" size="sm">{{
                         $t("LIMPIAR")
                     }}</SecondaryButton>

@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class Banco extends Model
 {
+    use \Illuminate\Database\Eloquent\Factories\HasFactory;
+
     // use \App\Models\Traits\TeamOwned; // Banks are global reference data
     protected $fillable = ['nombre', 'codigo', 'estatus', 'team_id'];
 

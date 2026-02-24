@@ -35,34 +35,64 @@ const errorMessage = ref("");
 const errorTitle = ref("");
 const reconciliationDate = ref(new Date().toISOString().split("T")[0]);
 
-watch(selectedMovements, (newIds) => {
-    console.log("Selected IDs:", newIds);
-    if (!newIds || newIds.length === 0) return;
+// Helper to calculate best date
+const calculateBestDate = () => {
+    // 1. If no movements, default to today
+    if (selectedMovements.value.length === 0) return;
 
-    let maxAmount = -1;
-    let bestDate = null;
+    // 2. If no invoices, fallback to max amount logic or just latest movement
+    if (selectedInvoices.value.length === 0) {
+        // Fallback: Max Amount Logic from before
+        let maxAmount = -1;
+        let bestDate: string | null = null;
+        selectedMovements.value.forEach((id) => {
+            const mov = props.movements.find((m) => m.id == id);
+            if (mov) {
+                const amount = parseFloat(mov.monto);
+                if (!isNaN(amount) && amount > maxAmount) {
+                    maxAmount = amount;
+                    bestDate = mov.fecha;
+                }
+            }
+        });
+        if (bestDate)
+            reconciliationDate.value = (bestDate as string).substring(0, 10);
+        return;
+    }
 
-    newIds.forEach((id) => {
-        // Use loose equality in case types mismatch (string vs number)
+    // 3. Matcher Logic: Closest movement date to the *first* selected invoice date
+    // (Assuming invoices are usually from the same period if selected together)
+    const firstInvoiceId = selectedInvoices.value[0];
+    const invoice = props.invoices.find((i) => i.id === firstInvoiceId);
+
+    if (!invoice || !invoice.fecha_emision) return;
+
+    const targetDate = new Date(invoice.fecha_emision);
+    let bestDiff = Infinity;
+    let closestDate: string | null = null;
+
+    selectedMovements.value.forEach((id) => {
         const mov = props.movements.find((m) => m.id == id);
+        if (mov && mov.fecha) {
+            const movDate = new Date(mov.fecha);
+            const diff = Math.abs(movDate.getTime() - targetDate.getTime());
 
-        if (mov) {
-            console.log("Found mov:", mov);
-            // Ensure amount is treated as a number
-            const amount = parseFloat(mov.monto);
-            if (!isNaN(amount) && amount > maxAmount) {
-                maxAmount = amount;
-                bestDate = mov.fecha;
+            if (diff < bestDiff) {
+                bestDiff = diff;
+                closestDate = mov.fecha;
             }
         }
     });
 
-    if (bestDate) {
-        // Extract YYYY-MM-DD safely
-        const newDate = bestDate.substring(0, 10);
-        console.log("Updating Reconciliation Date to:", newDate);
-        reconciliationDate.value = newDate;
+    if (closestDate) {
+        reconciliationDate.value = (closestDate as string).substring(0, 10);
+        console.log("Auto-selected closest date:", reconciliationDate.value);
     }
+};
+
+// Watch both selections
+watch([selectedMovements, selectedInvoices], () => {
+    calculateBestDate();
 });
 
 // Filters Logic
@@ -138,6 +168,9 @@ const diff = computed(() => totalMovements.value - totalInvoices.value);
 const validateAndReconcile = () => {
     let warnings: string[] = [];
     let title = wTrans("Confirmar Conciliación").value;
+
+    // Recalculate date one last time to be sure
+    calculateBestDate();
 
     // 1. RFC Consistency Check
     const selectedInvoiceObjects = props.invoices.filter((i) =>
@@ -345,7 +378,27 @@ const autoReconcile = () => {
             :processing="processing"
             @close="showConfirmationModal = false"
             @confirm="submitReconciliation"
-        />
+        >
+            <template #content>
+                <div class="mt-4">
+                    <label
+                        class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                        >{{ $t("Fecha de Conciliación") }}</label
+                    >
+                    <DatePicker
+                        v-model="reconciliationDate"
+                        :placeholder="$t('dd/mm/aaaa')"
+                    />
+                    <p class="text-xs text-gray-500 mt-1">
+                        {{
+                            $t(
+                                "Esta fecha se asignará al registro de conciliación.",
+                            )
+                        }}
+                    </p>
+                </div>
+            </template>
+        </ReconciliationModal>
 
         <!-- Error Modal -->
         <ReconciliationModal

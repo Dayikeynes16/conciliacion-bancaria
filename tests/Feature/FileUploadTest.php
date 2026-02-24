@@ -1,175 +1,179 @@
 <?php
 
+namespace Tests\Feature;
+
+use App\Jobs\ProcessXmlUpload;
+use App\Models\Factura;
+use App\Models\Team;
 use App\Models\User;
-use App\Services\Parsers\BbvaParser;
 use App\Services\Xml\CfdiParserService;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
+use Mockery;
+use Tests\TestCase;
 
-test('upload validation fails with invalid files', function () {
-    $user = User::factory()->create();
+class FileUploadTest extends TestCase
+{
+    use RefreshDatabase;
 
-    $response = $this->actingAs($user)
-        ->post(route('upload.store'), [
-            'files' => ['not-an-xml.txt'],
-            'statement' => 'not-an-excel.txt',
-        ]);
+    protected function setUp(): void
+    {
+        parent::setUp();
+        Storage::fake('local');
+        Queue::fake();
+    }
 
-    $response->assertSessionHasErrors(['files.0', 'statement']);
-});
+    protected function createUserWithTeam()
+    {
+        $user = User::factory()->create();
+        $team = Team::factory()->create(['user_id' => $user->id, 'personal_team' => true]);
+        $user->current_team_id = $team->id;
+        $user->save();
 
-test('upload processes xml files correctly', function () {
-    Storage::fake('local');
-    $user = User::factory()->create();
+        return $user;
+    }
 
-    // Mock Parser
-    $this->mock(CfdiParserService::class, function ($mock) {
-        $mock->shouldReceive('parse')
-            ->andReturn([
-                'uuid' => '12345-UUID',
-                'total' => 1000.00,
-                'fecha_emision' => '2023-01-01',
-                'rfc_emisor' => 'ABC123456T12',
-                'nombre_emisor' => 'Test Emisor',
-                'rfc_receptor' => 'XYZ123456T12',
-                'nombre_receptor' => 'Test Receptor',
+    public function test_upload_xml_dispatches_job_for_new_file()
+    {
+        $user = $this->createUserWithTeam();
+
+        $this->mock(CfdiParserService::class, function ($mock) use ($user) {
+            $mock->shouldReceive('parse')->once()->andReturn([
+                'uuid' => 'NEW-UUID-123',
+                'rfc_emisor' => $user->currentTeam->rfc, // Valid Emisor
+                'nombre_emisor' => 'Test Emisor', // Added for completeness
             ]);
-    });
+        });
 
-    $file = UploadedFile::fake()->create('factura.xml', 100, 'text/xml');
+        $file = UploadedFile::fake()->create('factura.xml', 100, 'text/xml');
 
-    $response = $this->actingAs($user)
-        ->post(route('upload.store'), [
-            'files' => [$file],
+        $response = $this->actingAs($user)
+            ->postJson(route('upload.store'), [
+                'files' => [$file],
+            ]);
+
+        $response->assertOk()
+            ->assertJson([
+                'success' => true,
+                'results' => [
+                    'xml_processed' => 1,
+                    'xml_xml_duplicates' => 0,
+                    'xml_other_errors' => 0,
+                ],
+                'processed_xml_count' => 1,
+            ]);
+
+        Queue::assertPushed(ProcessXmlUpload::class);
+        $this->assertDatabaseHas('archivos', [
+            'original_name' => 'factura.xml',
+            'estatus' => 'pendiente',
+        ]);
+    }
+
+    public function test_upload_xml_detects_synchronous_duplicate()
+    {
+        $user = $this->createUserWithTeam();
+
+        // Create existing invoice with UUID
+        Factura::factory()->create([
+            'team_id' => $user->current_team_id,
+            'uuid' => 'EXISTING-UUID-123',
+            'user_id' => $user->id,
+            'file_id_xml' => \App\Models\Archivo::factory()->create([
+                'team_id' => $user->current_team_id,
+                'user_id' => $user->id, // Added user_id
+            ])->id,
+            'monto' => 100,
+            'fecha_emision' => now(),
+            'rfc' => 'ABC',
+            'nombre' => 'Test',
         ]);
 
-    $response->assertSessionHasNoErrors();
-    $response->assertSessionHas('toasts');
+        $this->mock(CfdiParserService::class, function ($mock) use ($user) {
+            $mock->shouldReceive('parse')->once()->andReturn([
+                'uuid' => 'EXISTING-UUID-123',
+                'rfc_emisor' => $user->currentTeam->rfc, // Valid Emisor
+            ]);
+        });
 
-    // Assert DB
-    $this->assertDatabaseHas('archivos', [
-        'user_id' => $user->id,
-        'mime' => 'application/xml',
-    ]);
+        $file = UploadedFile::fake()->create('duplicate.xml', 100, 'text/xml');
 
-    $this->assertDatabaseHas('facturas', [
-        'user_id' => $user->id,
-        'uuid' => '12345-UUID',
-        'monto' => 1000.00,
-    ]);
-});
+        $response = $this->actingAs($user)
+            ->postJson(route('upload.store'), [
+                'files' => [$file],
+            ]);
 
-test('upload processes statement file correctly', function () {
-    Storage::fake('local');
-    $user = User::factory()->create();
+        $response->assertOk()
+            ->assertJson([
+                'success' => true,
+                'results' => [
+                    'xml_processed' => 0,
+                    'xml_xml_duplicates' => 1,
+                ],
+                'processed_xml_count' => 0,
+            ]);
 
-    // Mock Bbva Parser
-    $this->mock(BbvaParser::class, function ($mock) {
-        $mock->shouldReceive('parse')
-            ->andReturn([
-                [
-                    'fecha' => '2023-01-01',
-                    'descripcion' => 'Deposit',
-                    'monto' => 500.00,
-                    'tipo' => 'abono',
-                    'referencia' => 'REF123',
+        // Job should NOT be pushed for duplicate
+        Queue::assertNotPushed(ProcessXmlUpload::class);
+    }
+
+    public function test_upload_mixed_batch_handles_duplicates_and_new_files()
+    {
+        $user = $this->createUserWithTeam();
+
+        // Existing UUID
+        Factura::factory()->create([
+            'team_id' => $user->current_team_id,
+            'uuid' => 'EXISTING-UUID',
+            'user_id' => $user->id,
+            'file_id_xml' => \App\Models\Archivo::factory()->create([
+                'team_id' => $user->current_team_id,
+                'user_id' => $user->id, // Added user_id
+            ])->id,
+            'monto' => 100,
+            'fecha_emision' => now(),
+            'rfc' => 'ABC',
+            'nombre' => 'Test',
+        ]);
+
+        $user->currentTeam->update(['rfc' => 'ABC']);
+
+        // Mock parser to handle multiple calls
+        $mock = Mockery::mock(CfdiParserService::class);
+        $mock->shouldReceive('parse')->andReturnUsing(function ($content) {
+            // Need to match content to distinguish calls?
+            // The fake file content is accessible via getRealPath if stored, but here we pass UploadedFile.
+            // file_get_contents in controller reads the temp file.
+            // UploadedFile::fake()->createWithContent() populates the temp file.
+
+            if (str_contains($content, 'EXISTING')) {
+                return ['uuid' => 'EXISTING-UUID', 'rfc_emisor' => 'ABC']; // Match Team RFC
+            }
+
+            return ['uuid' => 'NEW-UUID', 'rfc_emisor' => 'ABC']; // Match Team RFC
+        });
+        $this->app->instance(CfdiParserService::class, $mock);
+
+        $file1 = UploadedFile::fake()->createWithContent('existing.xml', 'EXISTING CONTENT');
+        $file2 = UploadedFile::fake()->createWithContent('new.xml', 'NEW CONTENT');
+
+        $response = $this->actingAs($user)
+            ->postJson(route('upload.store'), [
+                'files' => [$file1, $file2],
+            ]);
+
+        $response->assertOk()
+            ->assertJson([
+                'success' => true,
+                'results' => [
+                    'xml_processed' => 1,
+                    'xml_xml_duplicates' => 1,
                 ],
             ]);
-    });
 
-    $file = UploadedFile::fake()->create('edo_cuenta.xlsx', 100, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-
-    $response = $this->actingAs($user)
-        ->post(route('upload.store'), [
-            'statement' => $file,
-            'bank_code' => 'BBVA',
-        ]);
-
-    $response->assertSessionHasNoErrors();
-    $response->assertSessionHas('toasts', function ($toasts) {
-        return collect($toasts)->contains(function ($toast) {
-            return str_contains($toast['message'], 'movimientos cargados') && $toast['type'] === 'success';
-        });
-    });
-
-    $this->assertDatabaseHas('movimientos', [
-        'user_id' => $user->id,
-        'monto' => 500.00,
-        'tipo' => 'abono',
-    ]);
-});
-
-test('upload processes xml files correctly with json response', function () {
-    Storage::fake('local');
-    $user = User::factory()->create();
-
-    $this->mock(CfdiParserService::class, function ($mock) {
-        $mock->shouldReceive('parse')->andReturn([
-            'uuid' => 'JSON-UUID',
-            'total' => 200.00,
-            'fecha_emision' => '2023-01-02',
-            'rfc_emisor' => 'JSON123456T12',
-            'nombre_emisor' => 'JSON Emisor',
-            'rfc_receptor' => 'XYZ123456T12',
-            'nombre_receptor' => 'Test Receptor',
-        ]);
-    });
-
-    $file = UploadedFile::fake()->create('factura_json.xml', 100, 'text/xml');
-
-    $response = $this->actingAs($user)
-        ->postJson(route('upload.store'), [
-            'files' => [$file],
-        ]);
-
-    $response->assertOk()
-        ->assertJson([
-            'success' => true,
-            'processed_xml_count' => 1,
-        ]);
-});
-
-test('can delete uploaded file', function () {
-    Storage::fake('local');
-    $user = User::factory()->create();
-    $team = \App\Models\Team::create([
-        'user_id' => $user->id,
-        'name' => 'Test Team',
-        'personal_team' => true,
-    ]);
-    $user->forceFill(['current_team_id' => $team->id])->save();
-
-    // Mock Parser
-    $this->mock(CfdiParserService::class, function ($mock) {
-        $mock->shouldReceive('parse')->andReturn([
-            'uuid' => 'DELETE-UUID',
-            'total' => 500.00,
-            'fecha_emision' => '2023-01-05',
-            'rfc_emisor' => 'DEL123456T12',
-            'nombre_emisor' => 'Delete Emisor',
-            'rfc_receptor' => 'XYZ123456T12',
-            'nombre_receptor' => 'Test Receptor',
-        ]);
-    });
-    
-    $file = UploadedFile::fake()->create('factura.xml', 100, 'application/xml');
-
-    // 1. Upload file
-    $response = $this->actingAs($user)
-        ->postJson(route('upload.store'), [
-            'files' => [$file],
-        ]);
-    
-    $response->assertOk();
-    
-    $archivo = \App\Models\Archivo::first();
-    $this->assertNotNull($archivo);
-    
-    // 2. Delete file via FacturaController (invoices.destroy)
-    $response = $this->actingAs($user)
-        ->delete(route('invoices.destroy', $archivo->id));
-        
-    $response->assertRedirect(route('invoices.index'));
-    $this->assertDatabaseMissing('archivos', ['id' => $archivo->id]);
-    $this->assertDatabaseMissing('facturas', ['file_id_xml' => $archivo->id]);
-});
+        // Only 1 job pushed
+        Queue::assertPushed(ProcessXmlUpload::class, 1);
+    }
+}

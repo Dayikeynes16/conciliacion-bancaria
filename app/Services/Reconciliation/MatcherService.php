@@ -14,7 +14,7 @@ class MatcherService
      * Find exact matches for a given team within a specific Month/Year.
      * Matches where Amount is identical (or within tolerance) and Date is in the SAME Month.
      */
-    public function findMatches(int $teamId, float $toleranceAmount = 0.5, int $month, int $year): array
+    public function findMatches(int $teamId, float $toleranceAmount, int $month, int $year): array
     {
         // Optimization: Pre-filter by Month/Year in DB
         $unreconciledInvoices = Factura::where('team_id', $teamId)
@@ -39,15 +39,15 @@ class MatcherService
             foreach ($unreconciledMovements as $movement) {
                 // Check Amount Tolerance
                 $diffAmount = abs($invoice->monto - $movement->monto);
-                
+
                 if ($diffAmount <= $toleranceAmount) {
-                    
+
                     // Strict Month Check (Verified by DB filter, but good for safety)
                     // If DB filter is active, this is guaranteed.
                     // Score is irrelevant if strict, but we can still use day proximity for sorting dupes.
-                    
+
                     $daysDiff = $invoice->fecha_emision->diffInDays($movement->fecha, false);
-                    
+
                     Log::info("Match Found (Strict Month): Inv {$invoice->id} vs Mov {$movement->id}. Diff: \${$diffAmount}. Days: {$daysDiff}");
 
                     $matches[] = [
@@ -56,7 +56,7 @@ class MatcherService
                         // Score calculation:
                         // 100 base. Minus days diff.
                         // Since same month, max diff is ~31.
-                        'score' => 100 - abs($daysDiff), 
+                        'score' => 100 - abs($daysDiff),
                         'difference' => $diffAmount,
                     ];
                 }
@@ -75,7 +75,7 @@ class MatcherService
             $invId = $match['invoice']->id;
             $movId = $match['movement']->id;
 
-            if (!in_array($invId, $usedInvoiceIds) && !in_array($movId, $usedMovementIds)) {
+            if (! in_array($invId, $usedInvoiceIds) && ! in_array($movId, $usedMovementIds)) {
                 $uniqueMatches[] = $match;
                 $usedInvoiceIds[] = $invId;
                 $usedMovementIds[] = $movId;
@@ -99,7 +99,7 @@ class MatcherService
 
             if ($invoices->count() !== count($invoiceIds) || $movements->count() !== count($movementIds)) {
                 // If counts don't match, some IDs were invalid or belong to another team
-               throw new \Exception('Invalid or unauthorized records selected.');
+                throw new \Exception('Invalid or unauthorized records selected.');
             }
 
             // Calculate totals
@@ -115,51 +115,53 @@ class MatcherService
             // Or if it's 1-to-1, simple.
             // If 1-to-N (1 Invoice, 2 Payments): Link Invoice to Pay1, Invoice to Pay2.
 
+            // Calculate total available amounts to prevent over-application
+            $invoiceRemaining = [];
+            foreach ($invoices as $inv) {
+                $invoiceRemaining[$inv->id] = $inv->monto;
+            }
+
+            $movementRemaining = [];
+            foreach ($movements as $mov) {
+                $movementRemaining[$mov->id] = $mov->monto;
+            }
+
             foreach ($invoices as $invoice) {
+                // If invoice is fully paid, skip
+                if ($invoiceRemaining[$invoice->id] <= 0) {
+                    continue;
+                }
+
                 foreach ($movements as $movement) {
-                    // Distribute amount?
-                    // For MVP, just create the link. The intersection means "This invoice is paid by this movement".
+                    // If movement is fully used, skip
+                    if ($movementRemaining[$movement->id] <= 0) {
+                        continue;
+                    }
 
-                    // If we have 1 Invoice ($100) and 2 Movements ($50, $50).
-                    // We link Inv-Mov1 ($50 applied) and Inv-Mov2 ($50 applied).
-                    // But we don't know the exact split if not provided.
-                    // We can assume equal distribution or FIFO.
+                    // Determine match amount based on remaining balances
+                    $amountToApply = min($invoiceRemaining[$invoice->id], $movementRemaining[$movement->id]);
 
-                    // Simplest for now: create the record.
-                    // But we need 'monto_aplicado'.
-
-                    // Case 1-1:
-                    if ($invoices->count() == 1 && $movements->count() == 1) {
+                    if ($amountToApply > 0) {
                         Conciliacion::create([
                             'group_id' => $groupId,
                             'user_id' => auth()->id(),
                             'team_id' => auth()->user()->current_team_id,
                             'factura_id' => $invoice->id,
                             'movimiento_id' => $movement->id,
-                            'monto_aplicado' => min($invoice->monto, $movement->monto),
+                            'monto_aplicado' => $amountToApply,
                             'tipo' => $type,
-
                             'estatus' => 'conciliado',
                             'fecha_conciliacion' => $date ?? now(),
                         ]);
-                    } else {
-                        // N-M Complex case or 1-N / N-1.
-                        // For MVP, we attempt to distribute or just assign the movement amount if it's less than invoice,
-                        // or invoice amount if less than movement.
-                        // A safe default for "Partial" is min(invoice, movement).
 
-                        Conciliacion::create([
-                            'group_id' => $groupId,
-                            'user_id' => auth()->id(),
-                            'team_id' => auth()->user()->current_team_id,
-                            'factura_id' => $invoice->id,
-                            'movimiento_id' => $movement->id,
-                            'monto_aplicado' => min($invoice->monto, $movement->monto),
-                            'tipo' => $type,
+                        // Deduct applied amount from both sides
+                        $invoiceRemaining[$invoice->id] -= $amountToApply;
+                        $movementRemaining[$movement->id] -= $amountToApply;
 
-                            'estatus' => 'conciliado',
-                            'fecha_conciliacion' => $date ?? now(),
-                        ]);
+                        // Stop checking movements for this invoice if it's fully paid
+                        if ($invoiceRemaining[$invoice->id] <= 0) {
+                            break;
+                        }
                     }
                 }
             }
