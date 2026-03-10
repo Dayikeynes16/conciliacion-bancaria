@@ -13,6 +13,7 @@ use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class ProcessBankStatement implements ShouldQueue
 {
@@ -34,10 +35,16 @@ class ProcessBankStatement implements ShouldQueue
      */
     public function handle(): void
     {
+        $tempPath = null;
         try {
             $this->archivo->update(['estatus' => 'procesando']);
 
-            $fullPath = Storage::path($this->archivo->path);
+            // Download file from storage (S3) to a local temp path
+            // so the parser can read it with filesize/PhpSpreadsheet
+            $ext = pathinfo($this->archivo->path, PATHINFO_EXTENSION) ?: 'xlsx';
+            $tempPath = sys_get_temp_dir().'/statement_'.Str::random(10).'.'.$ext;
+            file_put_contents($tempPath, Storage::get($this->archivo->path));
+            $fullPath = $tempPath;
 
             // Retrieve Bank via Archivo relationship
             $this->archivo->load('banco', 'bankFormat');
@@ -106,6 +113,10 @@ class ProcessBankStatement implements ShouldQueue
             Log::error("Error processing Statement {$this->archivo->id}: ".$e->getMessage());
             $this->archivo->update(['estatus' => 'fallido']);
             $this->fail($e);
+        } finally {
+            if ($tempPath && file_exists($tempPath)) {
+                @unlink($tempPath);
+            }
         }
     }
 }
