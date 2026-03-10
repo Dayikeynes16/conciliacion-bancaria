@@ -36,10 +36,6 @@ const columnMappings = ref({
     fecha: props.format?.date_column || null,
     descripcion: props.format?.description_column || null,
     monto: props.format?.amount_column || null,
-    cargo: props.format?.debit_column || null,
-    abono: props.format?.credit_column || null,
-    referencia: props.format?.reference_column || null,
-    tipo: props.format?.type_column || null,
 });
 
 // Colors for the picker
@@ -145,25 +141,16 @@ const saveFormat = () => {
     const isRemapping = rows.value.length > 0;
 
     if (isRemapping) {
-        if (!columnMappings.value.fecha || !columnMappings.value.descripcion) {
-            return Swal.fire({
-                icon: "warning",
-                title: trans("Columnas incompletas"),
-                text: trans(
-                    "Por favor asigna las columnas de Fecha y Descripción",
-                ),
-            });
-        }
-
         if (
-            !columnMappings.value.monto &&
-            (!columnMappings.value.cargo || !columnMappings.value.abono)
+            !columnMappings.value.fecha ||
+            !columnMappings.value.descripcion ||
+            !columnMappings.value.monto
         ) {
             return Swal.fire({
                 icon: "warning",
                 title: trans("Columnas incompletas"),
                 text: trans(
-                    'Debes asignar "Monto" (columna única) O "Cargo" y "Abono" (columnas separadas)',
+                    "Por favor asigna las columnas de Fecha, Descripción y Monto",
                 ),
             });
         }
@@ -171,10 +158,6 @@ const saveFormat = () => {
         form.date_column = columnMappings.value.fecha;
         form.description_column = columnMappings.value.descripcion;
         form.amount_column = columnMappings.value.monto;
-        form.debit_column = columnMappings.value.cargo;
-        form.credit_column = columnMappings.value.abono;
-        form.reference_column = columnMappings.value.referencia;
-        form.type_column = columnMappings.value.tipo;
     }
 
     if (isEditing.value) {
@@ -205,14 +188,6 @@ const getTypeColor = (type) => {
             return "bg-blue-100 text-blue-800 border-blue-300";
         case "monto":
             return "bg-purple-100 text-purple-800 border-purple-300";
-        case "cargo":
-            return "bg-red-100 text-red-800 border-red-300";
-        case "abono":
-            return "bg-green-100 text-green-800 border-green-300";
-        case "referencia":
-            return "bg-gray-100 text-gray-800 border-gray-300";
-        case "tipo":
-            return "bg-yellow-100 text-yellow-800 border-yellow-300";
         default:
             return "bg-white";
     }
@@ -226,14 +201,6 @@ const getTypeLabel = (type) => {
             return trans("Descripción");
         case "monto":
             return trans("Monto");
-        case "cargo":
-            return trans("Cargo");
-        case "abono":
-            return trans("Abono");
-        case "referencia":
-            return trans("Referencia");
-        case "tipo":
-            return trans("Tipo");
         default:
             return "";
     }
@@ -529,30 +496,6 @@ const getTypeLabel = (type) => {
                                         ></span>
                                         {{ $t("Monto") }}
                                     </div>
-                                    <div class="flex items-center">
-                                        <span
-                                            class="w-3 h-3 rounded-full bg-red-500 mr-1"
-                                        ></span>
-                                        {{ $t("Cargo") }}
-                                    </div>
-                                    <div class="flex items-center">
-                                        <span
-                                            class="w-3 h-3 rounded-full bg-green-500 mr-1"
-                                        ></span>
-                                        {{ $t("Abono") }}
-                                    </div>
-                                    <div class="flex items-center">
-                                        <span
-                                            class="w-3 h-3 rounded-full bg-yellow-500 mr-1"
-                                        ></span>
-                                        {{ $t("Tipo (Opc)") }}
-                                    </div>
-                                    <div class="flex items-center">
-                                        <span
-                                            class="w-3 h-3 rounded-full bg-gray-500 mr-1"
-                                        ></span>
-                                        {{ $t("Ref (Opc)") }}
-                                    </div>
                                 </div>
 
                                 <div
@@ -647,9 +590,6 @@ const getTypeLabel = (type) => {
                                                                 )
                                                             }}
                                                         </button>
-                                                        <div
-                                                            class="border-t my-1 dark:border-gray-600"
-                                                        ></div>
                                                         <button
                                                             @click="
                                                                 selectColumn(
@@ -660,55 +600,6 @@ const getTypeLabel = (type) => {
                                                             class="text-left px-2 py-1 text-xs hover:bg-purple-100 dark:hover:bg-purple-900 rounded text-purple-700 dark:text-purple-300 font-medium"
                                                         >
                                                             {{ $t("Monto") }}
-                                                        </button>
-                                                        <button
-                                                            @click="
-                                                                selectColumn(
-                                                                    colIndex,
-                                                                    'cargo',
-                                                                )
-                                                            "
-                                                            class="text-left px-2 py-1 text-xs hover:bg-red-100 dark:hover:bg-red-900 rounded text-red-700 dark:text-red-300 font-medium"
-                                                        >
-                                                            {{ $t("Cargo") }}
-                                                        </button>
-                                                        <button
-                                                            @click="
-                                                                selectColumn(
-                                                                    colIndex,
-                                                                    'abono',
-                                                                )
-                                                            "
-                                                            class="text-left px-2 py-1 text-xs hover:bg-green-100 dark:hover:bg-green-900 rounded text-green-700 dark:text-green-300 font-medium"
-                                                        >
-                                                            {{ $t("Abono") }}
-                                                        </button>
-                                                        <div
-                                                            class="border-t my-1 dark:border-gray-600"
-                                                        ></div>
-                                                        <button
-                                                            @click="
-                                                                selectColumn(
-                                                                    colIndex,
-                                                                    'referencia',
-                                                                )
-                                                            "
-                                                            class="text-left px-2 py-1 text-xs hover:bg-gray-100 dark:hover:bg-gray-600 rounded"
-                                                        >
-                                                            {{
-                                                                $t("Referencia")
-                                                            }}
-                                                        </button>
-                                                        <button
-                                                            @click="
-                                                                selectColumn(
-                                                                    colIndex,
-                                                                    'tipo',
-                                                                )
-                                                            "
-                                                            class="text-left px-2 py-1 text-xs hover:bg-yellow-100 dark:hover:bg-yellow-900 rounded"
-                                                        >
-                                                            {{ $t("Tipo") }}
                                                         </button>
                                                     </div>
                                                 </th>
@@ -775,20 +666,6 @@ const getTypeLabel = (type) => {
                                                             getColumnType(
                                                                 colIndex,
                                                             ) === 'monto',
-                                                        'bg-red-50 dark:bg-red-900/20':
-                                                            isColumnSelected(
-                                                                colIndex,
-                                                            ) &&
-                                                            getColumnType(
-                                                                colIndex,
-                                                            ) === 'cargo',
-                                                        'bg-emerald-50 dark:bg-emerald-900/20':
-                                                            isColumnSelected(
-                                                                colIndex,
-                                                            ) &&
-                                                            getColumnType(
-                                                                colIndex,
-                                                            ) === 'abono',
                                                     }"
                                                 >
                                                     {{ cell }}
