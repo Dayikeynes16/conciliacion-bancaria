@@ -191,12 +191,6 @@ const sortedMovements = computed(() => {
                             <div class="text-xs text-gray-500 mt-1">
                                 {{ formatDate(invoice.fecha_emision) }}
                             </div>
-                            <div
-                                class="text-xs text-gray-400 font-mono mt-0.5 truncate w-48"
-                                :title="invoice.uuid"
-                            >
-                                {{ invoice.uuid.substring(0, 18) }}..
-                            </div>
                             <span
                                 v-if="invoice.tipo_comprobante === 'P'"
                                 class="inline-block mt-1 px-1.5 py-0.5 text-[10px] font-bold rounded bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300"
