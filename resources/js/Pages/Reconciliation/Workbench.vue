@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout.vue";
-import { Head, router } from "@inertiajs/vue3";
+import { Head, router, useForm } from "@inertiajs/vue3";
 import { ref, computed, reactive, watch } from "vue";
 import PrimaryButton from "@/Components/PrimaryButton.vue";
 import SecondaryButton from "@/Components/SecondaryButton.vue";
@@ -255,6 +255,23 @@ const submitReconciliation = () => {
     );
 };
 
+const confirmingInvoiceDeletion = ref<number | null>(null);
+
+const deleteInvoice = (fileId: number) => {
+    confirmingInvoiceDeletion.value = fileId;
+};
+
+const confirmDeleteInvoice = () => {
+    if (!confirmingInvoiceDeletion.value) return;
+    const deleteForm = useForm({});
+    deleteForm.delete(route("invoices.destroy", confirmingInvoiceDeletion.value), {
+        preserveScroll: true,
+        onSuccess: () => {
+            confirmingInvoiceDeletion.value = null;
+        },
+    });
+};
+
 const autoReconcile = () => {
     autoReconciling.value = true;
     router.get(
@@ -378,6 +395,7 @@ const autoReconcile = () => {
                     :selected-movements="selectedMovements"
                     @toggle-invoice="toggleInvoice"
                     @toggle-movement="toggleMovement"
+                    @delete-invoice="deleteInvoice"
                 />
             </div>
         </div>
@@ -421,6 +439,16 @@ const autoReconcile = () => {
             :processing="false"
             :is-error="true"
             @close="showErrorModal = false"
+        />
+
+        <!-- Delete Invoice Confirmation -->
+        <ReconciliationModal
+            :show="confirmingInvoiceDeletion !== null"
+            :title="$t('Eliminar Factura')"
+            :message="$t('¿Estás seguro de que deseas eliminar esta factura? Esta acción no se puede deshacer.')"
+            :processing="false"
+            @close="confirmingInvoiceDeletion = null"
+            @confirm="confirmDeleteInvoice"
         />
     </AuthenticatedLayout>
 </template>

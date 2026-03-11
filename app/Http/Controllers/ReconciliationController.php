@@ -26,7 +26,7 @@ class ReconciliationController extends Controller
         $amountMax = $request->input('amount_max');
 
         // Queries
-        $invoicesQuery = Factura::where('team_id', $teamId)->doesntHave('conciliaciones');
+        $invoicesQuery = Factura::where('team_id', $teamId)->doesntHave('conciliaciones')->with('archivoXml:id,original_name');
         $movementsQuery = Movimiento::where('team_id', $teamId)
             ->where(function ($query) {
                 $query->where('tipo', 'abono')->orWhere('tipo', 'Abono');

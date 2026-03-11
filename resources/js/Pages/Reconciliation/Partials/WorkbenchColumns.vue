@@ -8,7 +8,7 @@ const props = defineProps<{
     selectedMovements: number[];
 }>();
 
-const emit = defineEmits(["toggleInvoice", "toggleMovement"]);
+const emit = defineEmits(["toggleInvoice", "toggleMovement", "deleteInvoice"]);
 
 type SortOrder = "default" | "asc" | "desc";
 const invoiceSort = ref<SortOrder>("default");
@@ -209,13 +209,28 @@ const sortedMovements = computed(() => {
                             >
                                 PUE
                             </span>
+                            <div
+                                v-if="invoice.archivo_xml?.original_name"
+                                class="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5 break-all leading-tight"
+                            >
+                                {{ invoice.archivo_xml.original_name }}
+                            </div>
                         </div>
-                        <div class="text-right">
+                        <div class="text-right flex flex-col items-end gap-1">
                             <div
                                 class="font-bold text-indigo-600 dark:text-indigo-400"
                             >
                                 {{ formatCurrency(invoice.monto) }}
                             </div>
+                            <button
+                                @click.stop="emit('deleteInvoice', invoice.file_id_xml)"
+                                class="text-red-400 hover:text-red-600 dark:hover:text-red-400 transition-colors p-0.5"
+                                :title="$t('Eliminar factura')"
+                            >
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                            </button>
                         </div>
                     </div>
 
