@@ -121,7 +121,7 @@ class FacturaController extends Controller
 
         $file->delete();
 
-        return redirect()->route('invoices.index')->with('success', 'Factura eliminada correctamente.');
+        return back()->with('success', 'Factura eliminada correctamente.');
     }
 
     public function batchDestroy(Request $request)
