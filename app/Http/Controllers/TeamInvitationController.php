@@ -10,47 +10,57 @@ use Inertia\Inertia;
 
 class TeamInvitationController extends Controller
 {
-    public function accept(Request $request, $token)
+    /**
+     * Show the invitation page (GET - safe, no state change).
+     */
+    public function show(Request $request, $token)
     {
         $invitation = TeamInvitation::with('team.owner')->where('token', $token)->firstOrFail();
 
-        // If user is logged in
-        if (Auth::check()) {
-            $user = Auth::user();
-
-            // Check if user is the owner
-            if ($invitation->team->user_id === $user->id) {
-                // Delete the invitation as it is redundant
-                $invitation->delete();
-                
-                return redirect()->route('dashboard')->with('info', 'Ya eres el propietario de este equipo.');
-            }
-
-            // Link user to team if not already linked
-            if (! $invitation->team->users()->where('user_id', $user->id)->exists()) {
-                $invitation->team->users()->attach($user->id, ['role' => $invitation->role]);
-                $invitation->delete();
-
-                // Switch to that team
-                $user->switchTeam($invitation->team);
-
-                return redirect()->route('dashboard')->with('success', 'Te has unido al equipo '.$invitation->team->name);
-            } else {
-                $user->switchTeam($invitation->team);
-                $invitation->delete(); // Clean up invite if already member? Or just redirect.
-
-                return redirect()->route('dashboard')->with('info', 'Ya eres miembro de este equipo.');
-            }
-        }
-
-        // If user is NOT logged in, show Invitation Landing Page
-        // Store intended URL so after login they are redirected back here to "accept" it (but currently 'accept' triggers join logic immediately)
-        // Actually, if we redirect back to 'accept' after login, it will hit the "Auth::check()" block above. Perfect.
-        session(['url.intended' => route('team-invitations.accept', $token)]);
+        // Store intended URL so after login/register the user is redirected to the join page
+        session(['url.intended' => route('team-invitations.join', $token)]);
 
         return Inertia::render('Teams/InvitationLanding', [
             'invitation' => $invitation,
+            'isAuthenticated' => Auth::check(),
         ]);
+    }
+
+    /**
+     * Accept the invitation (POST - requires CSRF token).
+     */
+    public function accept(Request $request, $token)
+    {
+        $invitation = TeamInvitation::with('team')->where('token', $token)->firstOrFail();
+
+        if (! Auth::check()) {
+            // Not logged in — store intended URL and redirect to login
+            session(['url.intended' => route('team-invitations.join', $token)]);
+
+            return redirect()->route('login');
+        }
+
+        $user = Auth::user();
+
+        // Check if user is the owner
+        if ($invitation->team->user_id === $user->id) {
+            $invitation->delete();
+
+            return redirect()->route('dashboard')->with('info', 'Ya eres el propietario de este equipo.');
+        }
+
+        // Link user to team if not already linked
+        if (! $invitation->team->users()->where('user_id', $user->id)->exists()) {
+            $invitation->team->users()->attach($user->id, ['role' => $invitation->role]);
+            $user->switchTeam($invitation->team);
+        } else {
+            $user->switchTeam($invitation->team);
+        }
+
+        $teamName = $invitation->team->name;
+        $invitation->delete();
+
+        return redirect()->route('dashboard')->with('success', 'Te has unido al equipo '.$teamName);
     }
 
     public function destroy(Request $request, TeamInvitation $invitation)

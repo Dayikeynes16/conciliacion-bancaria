@@ -18,6 +18,10 @@ class ProcessXmlUpload implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
+    public $tries = 3;
+
+    public $backoff = [30, 120, 300];
+
     /**
      * Create a new job instance.
      */
@@ -109,10 +113,15 @@ class ProcessXmlUpload implements ShouldQueue
             });
 
         } catch (\Throwable $e) {
-
             Log::error("Error processing XML {$this->archivo->id}: ".$e->getMessage());
             $this->archivo->update(['estatus' => 'fallido']);
-            $this->fail($e);
+            throw $e;
         }
+    }
+
+    public function failed(\Throwable $exception): void
+    {
+        $this->archivo->update(['estatus' => 'fallido']);
+        Log::error("ProcessXmlUpload permanently failed for Archivo #{$this->archivo->id}: ".$exception->getMessage());
     }
 }

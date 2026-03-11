@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import { Link } from "@inertiajs/vue3";
 
+function paginationLabel(html: string): string {
+    return html.replace(/&laquo;/g, "\u00AB").replace(/&raquo;/g, "\u00BB").replace(/<[^>]*>/g, "");
+}
+
 defineProps<{
     movements: {
         data: Array<{
@@ -226,7 +230,7 @@ const formatCurrency = (amount: number) => {
                         <div
                             v-if="link.url === null"
                             class="mr-1 mb-1 px-4 py-3 text-sm leading-4 text-gray-400 border rounded"
-                            v-html="link.label"
+                            v-text="paginationLabel(link.label)"
                         />
                         <Link
                             v-else
@@ -238,7 +242,7 @@ const formatCurrency = (amount: number) => {
                             :href="link.url"
                             preserve-state
                             preserve-scroll
-                            v-html="link.label"
+                            v-text="paginationLabel(link.label)"
                         />
                     </template>
                 </div>

@@ -135,7 +135,6 @@ const highlightInvoiceName = (name: string, match: any): string => {
 };
 
 const reasonLabels: Record<string, string> = {
-    monto_unico: 'Monto Único',
     rfc: 'RFC',
     uuid: 'UUID',
     nombre: 'Nombre',
@@ -303,7 +302,7 @@ const date = (dateString: string) => {
                                                 class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
                                                 :class="[confidenceConfig[match.confidence].bg, confidenceConfig[match.confidence].text]"
                                             >
-                                                {{ confidenceConfig[match.confidence].label }} ({{ match.score }})
+                                                {{ confidenceConfig[match.confidence].label }} ({{ match.score }}%)
                                             </div>
                                             <div v-if="match.match_reasons.length" class="mt-1 flex flex-wrap gap-1 justify-center">
                                                 <span

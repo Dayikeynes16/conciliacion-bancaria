@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import { Head, useForm, router } from '@inertiajs/vue3';
+import { Head, useForm, router, usePage } from '@inertiajs/vue3';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import SecondaryButton from '@/Components/SecondaryButton.vue';
 import TextInput from '@/Components/TextInput.vue';
@@ -58,10 +58,12 @@ const updateTeamName = () => {
     });
 };
 
+const page = usePage();
+
 const copyLink = (token: string) => {
     const link = route('team-invitations.accept', token);
     navigator.clipboard.writeText(link);
-    alert(trans('Link copiado al portapapeles: ') + link);
+    page.props.flash.success = trans('Link copiado al portapapeles.');
 };
 
 const userBeingRemoved = ref<number | null>(null);

@@ -2,6 +2,10 @@
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout.vue";
 import { Head, Link, router, useForm } from "@inertiajs/vue3";
 import { ref, watch, reactive, computed } from "vue";
+
+function paginationLabel(html: string): string {
+    return html.replace(/&laquo;/g, "\u00AB").replace(/&raquo;/g, "\u00BB").replace(/<[^>]*>/g, "");
+}
 import debounce from "lodash/debounce";
 import ConfirmationModal from "@/Components/ConfirmationModal.vue";
 import PrimaryButton from "@/Components/PrimaryButton.vue";
@@ -231,7 +235,7 @@ const closeModal = () => {
                                         key ===
                                         reconciledGroups.links.length - 1,
                                 }"
-                                v-html="link.label"
+                                v-text="paginationLabel(link.label)"
                             />
                             <Link
                                 v-else
@@ -247,7 +251,7 @@ const closeModal = () => {
                                         key ===
                                         reconciledGroups.links.length - 1,
                                 }"
-                                v-html="link.label"
+                                v-text="paginationLabel(link.label)"
                             />
                         </template>
                     </div>

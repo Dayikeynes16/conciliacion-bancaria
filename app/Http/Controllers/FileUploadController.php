@@ -40,10 +40,25 @@ class FileUploadController extends Controller
             if ($request->hasFile('files')) {
                 foreach ($request->file('files') as $file) {
                     try {
-                        // Validation
+                        // Validation: extension + MIME type + size
                         if ($file->getClientOriginalExtension() !== 'xml') {
                             $results['xml_other_errors']++;
                             $results['file_errors'][] = "Error ({$file->getClientOriginalName()}): No es un archivo XML.";
+
+                            continue;
+                        }
+
+                        $mime = $file->getMimeType();
+                        if (! in_array($mime, ['application/xml', 'text/xml', 'text/plain'])) {
+                            $results['xml_other_errors']++;
+                            $results['file_errors'][] = "Error ({$file->getClientOriginalName()}): El tipo de archivo no es XML válido (MIME: {$mime}).";
+
+                            continue;
+                        }
+
+                        if ($file->getSize() > 10 * 1024 * 1024) {
+                            $results['xml_other_errors']++;
+                            $results['file_errors'][] = "Error ({$file->getClientOriginalName()}): El archivo excede el tamaño máximo de 10MB.";
 
                             continue;
                         }

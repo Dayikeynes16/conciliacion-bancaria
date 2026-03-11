@@ -14,7 +14,8 @@ Route::get('/', function () {
     ]);
 });
 
-Route::get('/team-invitations/{token}', [App\Http\Controllers\TeamInvitationController::class, 'accept'])->name('team-invitations.accept');
+Route::get('/team-invitations/{token}', [App\Http\Controllers\TeamInvitationController::class, 'show'])->name('team-invitations.accept');
+Route::post('/team-invitations/{token}/join', [App\Http\Controllers\TeamInvitationController::class, 'accept'])->name('team-invitations.join');
 
 Route::get('/dashboard', [App\Http\Controllers\DashboardController::class, 'index'])
     ->middleware(['auth', 'verified'])
@@ -24,7 +25,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
-    Route::post('/upload/files', [App\Http\Controllers\FileUploadController::class, 'store'])->name('upload.store');
+    Route::post('/upload/files', [App\Http\Controllers\FileUploadController::class, 'store'])->middleware('throttle:30,1')->name('upload.store');
 
     // Team Management
     Route::resource('teams', App\Http\Controllers\TeamController::class)->only(['create', 'store', 'update']);
@@ -43,7 +44,7 @@ Route::middleware('auth')->group(function () {
     Route::delete('/reconciliation/group/{groupId}', [App\Http\Controllers\ReconciliationController::class, 'destroyGroup'])->name('reconciliation.group.destroy');
     Route::get('/reconciliation/history', [App\Http\Controllers\ReconciliationController::class, 'history'])->name('reconciliation.history');
     Route::get('/reconciliation/status', [App\Http\Controllers\ReconciliationController::class, 'status'])->name('reconciliation.status');
-    Route::get('/reconciliation/export', [App\Http\Controllers\ReconciliationController::class, 'export'])->name('reconciliation.export');
+    Route::get('/reconciliation/export', [App\Http\Controllers\ReconciliationController::class, 'export'])->middleware('throttle:10,1')->name('reconciliation.export');
     Route::get('/reconciliation/export/{id}/status', [App\Http\Controllers\ReconciliationController::class, 'checkExportStatus'])->name('reconciliation.export.status');
     Route::get('/reconciliation/export/{id}/download', [App\Http\Controllers\ReconciliationController::class, 'downloadExport'])->name('reconciliation.export.download');
 

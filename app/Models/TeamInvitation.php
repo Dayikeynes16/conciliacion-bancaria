@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
 
 class TeamInvitation extends Model
 {
@@ -12,8 +13,16 @@ class TeamInvitation extends Model
     protected $fillable = [
         'email',
         'role',
-        'token',
     ];
+
+    protected static function booted(): void
+    {
+        static::creating(function ($invitation) {
+            if (empty($invitation->token)) {
+                $invitation->token = Str::random(32);
+            }
+        });
+    }
 
     /**
      * Get the team that the invitation belongs to.

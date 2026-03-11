@@ -2,6 +2,10 @@
 import { Link } from "@inertiajs/vue3";
 import { computed } from "vue";
 
+function paginationLabel(html: string): string {
+    return html.replace(/&laquo;/g, "\u00AB").replace(/&raquo;/g, "\u00BB").replace(/<[^>]*>/g, "");
+}
+
 const props = defineProps<{
     files: {
         data: Array<{
@@ -250,7 +254,7 @@ const fileExtension = (name?: string) => {
                     <div
                         v-if="link.url === null"
                         class="mr-1 mb-1 px-4 py-3 text-sm leading-4 text-gray-400 border rounded"
-                        v-html="link.label"
+                        v-text="paginationLabel(link.label)"
                     />
                     <Link
                         v-else
@@ -260,7 +264,7 @@ const fileExtension = (name?: string) => {
                                 link.active,
                         }"
                         :href="link.url"
-                        v-html="link.label"
+                        v-text="paginationLabel(link.label)"
                     />
                 </template>
             </div>

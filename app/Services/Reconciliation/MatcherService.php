@@ -7,7 +7,6 @@ use App\Models\Factura;
 use App\Models\Movimiento;
 use App\Models\Team;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 
 class MatcherService
 {
@@ -20,17 +19,20 @@ class MatcherService
 
     /**
      * Find matches for a given team within a specific Month/Year.
-     * Uses multi-signal scoring: amount uniqueness, RFC, UUID, name, date, exactness.
+     * Score 0-100% based on three equal pillars: Amount (33), Date (33), Description (34).
      */
     public function findMatches(int $teamId, float $toleranceAmount, int $month, int $year): array
     {
         $team = Team::find($teamId);
         $teamRfc = $team?->rfc;
 
+        $maxRecords = 5000;
+
         $unreconciledInvoices = Factura::where('team_id', $teamId)
             ->whereMonth('fecha_emision', $month)
             ->whereYear('fecha_emision', $year)
             ->doesntHave('conciliaciones')
+            ->limit($maxRecords)
             ->get();
 
         $unreconciledMovements = Movimiento::where('team_id', $teamId)
@@ -41,6 +43,7 @@ class MatcherService
                     ->orWhere('tipo', 'Abono');
             })
             ->doesntHave('conciliaciones')
+            ->limit($maxRecords)
             ->get();
 
         // Pre-parse all movement descriptions once
@@ -50,19 +53,6 @@ class MatcherService
                 $movement->descripcion ?? '',
                 $teamRfc
             );
-        }
-
-        // Build amount frequency map for uniqueness detection
-        // Count how many invoices match each movement's amount (within tolerance)
-        $amountMatchCounts = [];
-        foreach ($unreconciledMovements as $movement) {
-            $count = 0;
-            foreach ($unreconciledInvoices as $invoice) {
-                if (abs($invoice->monto - $movement->monto) <= $toleranceAmount) {
-                    $count++;
-                }
-            }
-            $amountMatchCounts[$movement->id] = $count;
         }
 
         $matches = [];
@@ -78,66 +68,67 @@ class MatcherService
                 $parsed = $parsedDescriptions[$movement->id];
                 $reasons = [];
 
-                // Base score: every match that passes the amount filter gets +50
-                $score = 50;
-
-                // 1. Amount uniqueness: +20 bonus if only ONE invoice matches this movement
-                if ($amountMatchCounts[$movement->id] === 1) {
-                    $score += 20;
-                    $reasons[] = 'monto_unico';
+                // === Pillar 1: Amount exactness (0-33) ===
+                // Exact match = 33, at tolerance edge = 0
+                if ($toleranceAmount > 0) {
+                    $amountScore = (int) round((1 - $diffAmount / $toleranceAmount) * 33);
+                } else {
+                    $amountScore = $diffAmount == 0 ? 33 : 0;
                 }
 
-                // 2. RFC match: +30 if movement description contains the invoice's RFC
+                // === Pillar 2: Date proximity (0-33) ===
+                // Same day = 33, 30+ days apart = 0
+                $daysDiff = abs($invoice->fecha_emision->diffInDays($movement->fecha, false));
+                $dateScore = max(0, (int) round((1 - $daysDiff / 30) * 33));
+
+                // === Pillar 3: Description evidence (0-34) ===
+                // Best of RFC, UUID, or Name match (they don't stack)
+                $descriptionScore = 0;
+
+                // RFC match: full 34 if found
                 $invoiceRfc = $invoice->rfc ? strtoupper($invoice->rfc) : null;
                 if ($invoiceRfc && ! empty($parsed['rfcs'])) {
                     foreach ($parsed['rfcs'] as $descRfc) {
                         if ($descRfc === $invoiceRfc) {
-                            $score += 30;
+                            $descriptionScore = 34;
                             $reasons[] = 'rfc';
                             break;
                         }
                     }
                 }
 
-                // 3. UUID match: +25 if movement description contains a fragment of the invoice UUID
+                // UUID match: full 34 if found
                 $invoiceUuid = $invoice->uuid ? strtoupper($invoice->uuid) : null;
-                if ($invoiceUuid && ! empty($parsed['uuid_fragments'])) {
+                if ($descriptionScore < 34 && $invoiceUuid && ! empty($parsed['uuid_fragments'])) {
                     foreach ($parsed['uuid_fragments'] as $fragment) {
                         $uuidNoDashes = str_replace('-', '', $invoiceUuid);
                         $fragmentNoDashes = str_replace('-', '', $fragment);
                         if (str_contains($uuidNoDashes, $fragmentNoDashes) || str_contains($fragmentNoDashes, $uuidNoDashes)) {
-                            $score += 25;
+                            $descriptionScore = 34;
                             $reasons[] = 'uuid';
                             break;
                         }
                     }
                 }
 
-                // 4. Name fuzzy match: up to +15
-                if (! empty($parsed['name_tokens'])) {
+                // Name fuzzy match: proportional up to 34
+                if ($descriptionScore < 34 && ! empty($parsed['name_tokens'])) {
                     $invoiceName = $invoice->nombre ?? $invoice->nombre_emisor ?? '';
-                    $nameScore = $this->parser->nameMatchScore($parsed['name_tokens'], $invoiceName);
-                    if ($nameScore > 0) {
-                        $score += (int) round($nameScore * 15);
-                        $reasons[] = 'nombre';
+                    $nameRatio = $this->parser->nameMatchScore($parsed['name_tokens'], $invoiceName);
+                    if ($nameRatio > 0) {
+                        $nameScore = (int) round($nameRatio * 34);
+                        if ($nameScore > $descriptionScore) {
+                            $descriptionScore = $nameScore;
+                            $reasons[] = 'nombre';
+                        }
                     }
                 }
 
-                // 5. Date proximity: 0-20 (same day = 20, 31 days apart = 0)
-                $daysDiff = abs($invoice->fecha_emision->diffInDays($movement->fecha, false));
-                $dateScore = max(0, 20 - (int) round($daysDiff * 20 / 31));
-                $score += $dateScore;
+                // Total score capped at 100
+                $score = min($amountScore + $dateScore + $descriptionScore, 100);
 
-                // 6. Amount exactness: 0-10 (exact = 10, at tolerance edge = 0)
-                if ($toleranceAmount > 0) {
-                    $exactnessScore = (int) round((1 - $diffAmount / $toleranceAmount) * 10);
-                } else {
-                    $exactnessScore = $diffAmount == 0 ? 10 : 0;
-                }
-                $score += $exactnessScore;
-
-                // Confidence: High ≥100, Medium ≥50, Low <50
-                $confidence = $score >= 100 ? 'high' : ($score >= 50 ? 'medium' : 'low');
+                // Confidence: High ≥80, Medium ≥50, Low <50
+                $confidence = $score >= 80 ? 'high' : ($score >= 50 ? 'medium' : 'low');
 
                 $matches[] = [
                     'invoice' => $invoice,

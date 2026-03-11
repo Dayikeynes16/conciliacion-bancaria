@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout.vue";
-import { Head, router } from "@inertiajs/vue3";
+import { Head, router, usePage } from "@inertiajs/vue3";
 import { ref, watch, onUnmounted } from "vue";
 import { debounce } from "lodash";
 import StatusTabs from "./Partials/StatusTabs.vue";
@@ -9,6 +9,18 @@ import TransactionList from "./Partials/TransactionList.vue";
 import AdvancedFilters from "@/Components/AdvancedFilters.vue";
 import SecondaryButton from "@/Components/SecondaryButton.vue";
 import axios from "axios";
+
+const page = usePage();
+
+const showToast = (message: string, type: "success" | "error" | "warning" = "error") => {
+    if (type === "error") {
+        page.props.flash.error = message;
+    } else if (type === "success") {
+        page.props.flash.success = message;
+    } else {
+        page.props.flash.warning = message;
+    }
+};
 
 const props = defineProps<{
     conciliatedInvoices: Array<any>;
@@ -119,7 +131,7 @@ const startExport = async (format: string) => {
     } catch (error) {
         console.error(error);
         exportProcessing.value = false;
-        alert("Error iniciando exportación. Intente de nuevo.");
+        showToast("Error iniciando exportación. Intente de nuevo.");
     }
 };
 
@@ -143,7 +155,7 @@ const pollExport = (id: number) => {
             } else if (res.data.status === "failed") {
                 clearActiveInterval();
                 exportProcessing.value = false;
-                alert(
+                showToast(
                     "La exportación falló: " +
                         (res.data.error_message || "Error desconocido"),
                 );
@@ -151,7 +163,7 @@ const pollExport = (id: number) => {
         } catch (e) {
             clearActiveInterval();
             exportProcessing.value = false;
-            alert("Error consultando estado de exportación.");
+            showToast("Error consultando estado de exportación.");
         }
     }, 2000);
 };

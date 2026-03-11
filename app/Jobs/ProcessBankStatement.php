@@ -19,6 +19,10 @@ class ProcessBankStatement implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
+    public $tries = 3;
+
+    public $backoff = [30, 120, 300];
+
     /**
      * Create a new job instance.
      */
@@ -112,11 +116,17 @@ class ProcessBankStatement implements ShouldQueue
         } catch (\Throwable $e) {
             Log::error("Error processing Statement {$this->archivo->id}: ".$e->getMessage());
             $this->archivo->update(['estatus' => 'fallido']);
-            $this->fail($e);
+            throw $e;
         } finally {
             if ($tempPath && file_exists($tempPath)) {
                 @unlink($tempPath);
             }
         }
+    }
+
+    public function failed(\Throwable $exception): void
+    {
+        $this->archivo->update(['estatus' => 'fallido']);
+        Log::error("ProcessBankStatement permanently failed for Archivo #{$this->archivo->id}: ".$exception->getMessage());
     }
 }

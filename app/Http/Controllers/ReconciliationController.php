@@ -625,18 +625,16 @@ class ReconciliationController extends Controller
 
     public function destroyGroup($groupId)
     {
-        // Find one record to verify team ownership
-        $first = Conciliacion::where('group_id', $groupId)->firstOrFail();
+        $teamId = auth()->user()->current_team_id;
 
-        // This check is a bit tricky if we join but simpler:
-        // ensure item belongs to user's team.
-        // We can just rely on the join logic or check one relation.
-        if ($first->factura->team_id !== auth()->user()->current_team_id) {
-            abort(403);
+        // Scope delete to only records belonging to the current team
+        $deleted = Conciliacion::where('group_id', $groupId)
+            ->where('team_id', $teamId)
+            ->delete();
+
+        if ($deleted === 0) {
+            abort(404);
         }
-
-        // Delete all with this group_id
-        Conciliacion::where('group_id', $groupId)->delete();
 
         return back()->with('success', 'Grupo de conciliación desvinculado exitosamente.');
     }

@@ -65,8 +65,8 @@ class DynamicStatementParser extends AbstractBankParser
                     return null;
                 }
 
-                $descripcion = (string) $descVal;
-                $referencia = (string) $refVal;
+                $descripcion = $this->sanitizeCellValue((string) $descVal);
+                $referencia = $this->sanitizeCellValue((string) $refVal);
 
                 $rawMonto = 0;
                 $monto = 0;
@@ -184,5 +184,18 @@ class DynamicStatementParser extends AbstractBankParser
         }
 
         return (float) $value;
+    }
+
+    /**
+     * Strip leading characters that could be interpreted as formulas in Excel.
+     */
+    private function sanitizeCellValue(string $value): string
+    {
+        $value = trim($value);
+        if ($value !== '' && in_array($value[0], ['=', '+', '-', '@', "\t", "\r"])) {
+            $value = "'".$value;
+        }
+
+        return $value;
     }
 }

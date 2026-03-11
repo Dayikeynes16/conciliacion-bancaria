@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { Head, Link } from '@inertiajs/vue3';
+import { Head, Link, useForm } from '@inertiajs/vue3';
 import ApplicationLogo from '@/Components/ApplicationLogo.vue';
+import PrimaryButton from '@/Components/PrimaryButton.vue';
 
-defineProps<{
+const props = defineProps<{
     invitation: {
         token: string;
         role: string;
@@ -13,7 +14,14 @@ defineProps<{
             };
         };
     };
+    isAuthenticated: boolean;
 }>();
+
+const form = useForm({});
+
+const joinTeam = () => {
+    form.post(route('team-invitations.join', props.invitation.token));
+};
 </script>
 
 <template>
@@ -41,7 +49,19 @@ defineProps<{
                 <span class="font-bold text-indigo-600">{{ invitation.team.name }}</span>.
             </p>
 
-            <div class="space-y-4">
+            <!-- Authenticated: show join button -->
+            <div v-if="isAuthenticated" class="space-y-4">
+                <PrimaryButton
+                    @click="joinTeam"
+                    :disabled="form.processing"
+                    class="w-full justify-center"
+                >
+                    {{ $t('Unirse al Equipo') }}
+                </PrimaryButton>
+            </div>
+
+            <!-- Not authenticated: show login/register -->
+            <div v-else class="space-y-4">
                 <p class="text-sm text-gray-500">
                     {{ $t('Si ya tienes una cuenta, inicia sesión para unirte.') }}
                 </p>

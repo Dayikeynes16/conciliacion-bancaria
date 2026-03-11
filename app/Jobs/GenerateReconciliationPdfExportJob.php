@@ -14,8 +14,11 @@ class GenerateReconciliationPdfExportJob implements ShouldQueue
 {
     use Queueable;
 
-    // Timeout: 10 minutes
     public $timeout = 600;
+
+    public $tries = 3;
+
+    public $backoff = [30, 120, 300];
 
     /**
      * Create a new job instance.
@@ -74,5 +77,13 @@ class GenerateReconciliationPdfExportJob implements ShouldQueue
 
             throw $e;
         }
+    }
+
+    public function failed(\Throwable $exception): void
+    {
+        $this->exportRequest->update([
+            'status' => 'failed',
+            'error_message' => 'Error permanente: '.$exception->getMessage(),
+        ]);
     }
 }

@@ -63,11 +63,15 @@ class HandleInertiaRequests extends Middleware
         return [
             ...parent::share($request),
             'auth' => [
-                'user' => $request->user() ? array_merge($request->user()->load(['currentTeam' => function ($query) {
-                    $query->select('id', 'name', 'user_id', 'personal_team');
-                }])->toArray(), [
-                    'all_teams' => $request->user()->allTeams()->values()->all(),
-                ]) : null,
+                'user' => $request->user() ? array_merge(
+                    $request->user()->only(['id', 'name', 'email', 'current_team_id', 'profile_photo_url']),
+                    [
+                        'current_team' => $request->user()->currentTeam
+                            ? $request->user()->currentTeam->only(['id', 'name', 'user_id', 'personal_team'])
+                            : null,
+                        'all_teams' => $request->user()->allTeams()->values()->all(),
+                    ]
+                ) : null,
             ],
             'flash' => [
                 'success' => fn () => $request->session()->get('success'),
