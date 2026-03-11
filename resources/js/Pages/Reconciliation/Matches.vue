@@ -60,6 +60,62 @@ const currency = (amount: number | string) => {
     return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(Number(amount));
 };
 
+// Highlight helpers
+const escapeHtml = (str: string): string => {
+    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+};
+
+const escapeRegex = (str: string): string => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const highlightTerms = (text: string, terms: string[]): string => {
+    if (!text || !terms.length) return escapeHtml(text || '');
+    const escaped = escapeHtml(text);
+    const validTerms = [...terms].filter(t => t.length > 2).sort((a, b) => b.length - a.length);
+    if (!validTerms.length) return escaped;
+    const pattern = validTerms.map(t => escapeRegex(escapeHtml(t))).join('|');
+    const regex = new RegExp(`(${pattern})`, 'gi');
+    return escaped.replace(regex, '<mark class="bg-green-200 dark:bg-green-700/60 text-green-900 dark:text-green-100 rounded px-0.5 font-semibold">$1</mark>');
+};
+
+// Build highlight terms from invoice data for the movement description
+const getMovementHighlightTerms = (match: any): string[] => {
+    const terms: string[] = [];
+    if (match.match_reasons.includes('rfc') && match.invoice.rfc) {
+        terms.push(match.invoice.rfc);
+    }
+    if (match.match_reasons.includes('uuid') && match.invoice.uuid) {
+        terms.push(match.invoice.uuid);
+        terms.push(match.invoice.uuid.replace(/-/g, ''));
+        // Also add last 8 chars as fragment (common in bank descriptions)
+        const uuid = match.invoice.uuid.replace(/-/g, '');
+        if (uuid.length >= 8) terms.push(uuid.slice(-8));
+    }
+    if (match.match_reasons.includes('nombre') && match.invoice.nombre) {
+        const stopWords = new Set(['de', 'del', 'la', 'las', 'los', 'el', 'en', 'con', 'por', 'para', 'sa', 'cv', 'sc', 'sas', 'srl']);
+        const tokens = match.invoice.nombre.split(/\s+/).filter((t: string) => t.length > 2 && !stopWords.has(t.toLowerCase()));
+        terms.push(...tokens);
+    }
+    return terms;
+};
+
+// Build highlight terms from movement description for the invoice fields
+const getInvoiceHighlightTerms = (match: any): string[] => {
+    const terms: string[] = [];
+    const desc = (match.movement.descripcion || '').toUpperCase();
+    if (match.match_reasons.includes('rfc') && match.invoice.rfc && desc.includes(match.invoice.rfc.toUpperCase())) {
+        terms.push(match.invoice.rfc);
+    }
+    if (match.match_reasons.includes('uuid') && match.invoice.uuid) {
+        terms.push(match.invoice.uuid);
+    }
+    if (match.match_reasons.includes('nombre') && match.invoice.nombre) {
+        const stopWords = new Set(['de', 'del', 'la', 'las', 'los', 'el', 'en', 'con', 'por', 'para', 'sa', 'cv', 'sc', 'sas', 'srl']);
+        const tokens = match.invoice.nombre.split(/\s+/).filter((t: string) => t.length > 2 && !stopWords.has(t.toLowerCase()));
+        terms.push(...tokens);
+    }
+    return terms;
+};
+
 const reasonLabels: Record<string, string> = {
     monto_unico: 'Monto Único',
     rfc: 'RFC',
@@ -174,9 +230,9 @@ const date = (dateString: string) => {
                                             >
                                         </td>
                                         <td class="p-4">
-                                            <div class="font-medium" :class="match.match_reasons.includes('nombre') ? 'text-green-700 dark:text-green-400' : 'text-gray-900 dark:text-gray-100'">{{ match.invoice.nombre || match.invoice.rfc }}</div>
-                                            <div class="text-xs" :class="match.match_reasons.includes('uuid') ? 'text-green-600 dark:text-green-400 font-semibold' : 'text-gray-500 dark:text-gray-400'">{{ match.invoice.uuid }}</div>
-                                            <div v-if="match.invoice.rfc" class="text-xs mt-0.5" :class="match.match_reasons.includes('rfc') ? 'text-green-600 dark:text-green-400 font-semibold' : 'text-gray-500 dark:text-gray-400'">{{ match.invoice.rfc }}</div>
+                                            <div class="font-medium text-gray-900 dark:text-gray-100" v-html="match.match_reasons.includes('nombre') ? highlightTerms(match.invoice.nombre || match.invoice.rfc, getInvoiceHighlightTerms(match)) : escapeHtml(match.invoice.nombre || match.invoice.rfc)"></div>
+                                            <div class="text-xs text-gray-500 dark:text-gray-400" v-html="match.match_reasons.includes('uuid') ? highlightTerms(match.invoice.uuid, [match.invoice.uuid]) : escapeHtml(match.invoice.uuid)"></div>
+                                            <div v-if="match.invoice.rfc" class="text-xs text-gray-500 dark:text-gray-400 mt-0.5" v-html="match.match_reasons.includes('rfc') ? highlightTerms(match.invoice.rfc, [match.invoice.rfc]) : escapeHtml(match.invoice.rfc)"></div>
                                             <div class="flex justify-between items-center mt-1">
                                                 <div class="flex items-center gap-1.5">
                                                     <span class="text-xs bg-gray-100 px-2 py-0.5 rounded text-gray-600 dark:bg-gray-700 dark:text-gray-300">{{ date(match.invoice.fecha_emision) }}</span>
@@ -197,7 +253,7 @@ const date = (dateString: string) => {
                                             </div>
                                         </td>
                                         <td class="p-4 border-l border-gray-100 dark:border-gray-700">
-                                            <div class="font-medium text-gray-900 dark:text-gray-100 break-words text-sm leading-tight">{{ match.movement.descripcion }}</div>
+                                            <div class="font-medium text-gray-900 dark:text-gray-100 break-words text-sm leading-tight" v-html="highlightTerms(match.movement.descripcion, getMovementHighlightTerms(match))"></div>
                                             <div class="text-xs text-gray-500 dark:text-gray-400">{{ match.movement.referencia || 'Sin Referencia' }}</div>
                                             <div class="flex justify-between items-center mt-1">
                                                 <span class="text-xs bg-gray-100 px-2 py-0.5 rounded text-gray-600 dark:bg-gray-700 dark:text-gray-300">{{ date(match.movement.fecha) }}</span>
