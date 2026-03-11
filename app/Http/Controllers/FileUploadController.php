@@ -135,8 +135,8 @@ class FileUploadController extends Controller
                         throw new \Exception('Debe seleccionar un formato bancario.');
                     }
 
-                    // 1. Resolve BankFormat
-                    $format = \App\Models\BankFormat::find($bankCode);
+                    // 1. Resolve BankFormat (must belong to current team)
+                    $format = \App\Models\BankFormat::where('team_id', auth()->user()->current_team_id)->find($bankCode);
 
                     if ($format) {
                         $bankFormatId = $format->id;

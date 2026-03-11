@@ -158,8 +158,6 @@ class ReconciliationController extends Controller
 
     public function store(Request $request, MatcherService $matcher)
     {
-        \Illuminate\Support\Facades\Log::info('Reconciliation Store Request', $request->all());
-        \Illuminate\Support\Facades\Log::info('Conciliacion At', ['val' => $request->conciliacion_at]);
         $request->validate([
             'invoice_ids' => 'required|array',
             'movement_ids' => 'required|array',

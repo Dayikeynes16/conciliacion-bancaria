@@ -12,7 +12,7 @@ class BankFormatController extends Controller
     // Used for the Management Page
     public function index()
     {
-        $formats = BankFormat::orderBy('name')->get();
+        $formats = BankFormat::where('team_id', auth()->user()->current_team_id)->orderBy('name')->get();
 
         return \Inertia\Inertia::render('BankFormats/Index', [
             'formats' => $formats,
@@ -22,7 +22,7 @@ class BankFormatController extends Controller
     // API endpoint for Dropdowns
     public function list()
     {
-        return BankFormat::with('banco:id,nombre')->orderBy('name')->get();
+        return BankFormat::where('team_id', auth()->user()->current_team_id)->with('banco:id,nombre')->orderBy('name')->get();
     }
 
     public function create()
@@ -32,6 +32,10 @@ class BankFormatController extends Controller
 
     public function edit(BankFormat $bankFormat)
     {
+        if ($bankFormat->team_id !== auth()->user()->current_team_id) {
+            abort(403);
+        }
+
         return \Inertia\Inertia::render('BankFormats/Create', [
             'format' => $bankFormat,
         ]);
@@ -39,6 +43,9 @@ class BankFormatController extends Controller
 
     public function update(Request $request, BankFormat $bankFormat)
     {
+        if ($bankFormat->team_id !== auth()->user()->current_team_id) {
+            abort(403);
+        }
 
         $request->validate([
             'name' => [

@@ -181,8 +181,8 @@ class MatcherService
             $teamId = auth()->user()->current_team_id;
             $groupId = \Illuminate\Support\Str::uuid();
 
-            $invoices = Factura::where('team_id', $teamId)->findMany($invoiceIds);
-            $movements = Movimiento::where('team_id', $teamId)->findMany($movementIds);
+            $invoices = Factura::where('team_id', $teamId)->lockForUpdate()->findMany($invoiceIds);
+            $movements = Movimiento::where('team_id', $teamId)->lockForUpdate()->findMany($movementIds);
 
             if ($invoices->count() !== count($invoiceIds) || $movements->count() !== count($movementIds)) {
                 // If counts don't match, some IDs were invalid or belong to another team

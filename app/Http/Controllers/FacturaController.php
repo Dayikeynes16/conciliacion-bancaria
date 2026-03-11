@@ -19,7 +19,7 @@ class FacturaController extends Controller
         $amountMin = $request->input('amount_min');
         $amountMax = $request->input('amount_max');
         $sort = $request->input('sort', 'created_at');
-        $direction = $request->input('direction', 'desc');
+        $direction = in_array(strtolower($request->input('direction', 'desc')), ['asc', 'desc']) ? $request->input('direction', 'desc') : 'desc';
 
         $query = Archivo::query()
             ->select('archivos.*')
@@ -75,10 +75,7 @@ class FacturaController extends Controller
             $dir = strtolower($direction) === 'asc' ? 'ASC' : 'DESC';
             $query->orderByRaw("CASE WHEN facturas.tipo_comprobante = 'P' THEN 'Complemento' WHEN facturas.metodo_pago = 'PUE' THEN 'PUE' ELSE COALESCE(facturas.metodo_pago, 'ZZZ') END {$dir}");
         } else {
-            // Default sort, usually by upload date (created_at of archivo)
-            // Use table alias to avoid ambiguity if sort is created_at
-            $sortField = $sort === 'created_at' ? 'archivos.created_at' : $sort;
-            $query->orderBy($sortField, $direction);
+            $query->orderBy('archivos.created_at', $direction);
         }
 
         $perPageParam = $request->input('per_page', 10);
