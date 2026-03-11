@@ -1,115 +1,84 @@
-# App – Conciliación Bancaria
+# Conciliación Bancaria
 
-Aplicación para la conciliación de facturas (XML CFDI) con movimientos bancarios (Estados de Cuenta).
+Aplicación para la conciliación de facturas XML (CFDI) con movimientos bancarios (estados de cuenta), con soporte multiempresa.
 
-> **DOCUMENTACIÓN OFICIAL (Forensic Audit)**: Consulta [docs/SOURCE_OF_TRUTH.md](docs/SOURCE_OF_TRUTH.md) para la arquitectura detallada, esquema de base de datos y flujos de negocio auditados.
+> Documentación técnica completa: [docs/SOURCE_OF_TRUTH.md](docs/SOURCE_OF_TRUTH.md)
 
-## Características
+---
 
-- **Multitenancy**: Soporte para múltiples empresas/equipos. Cada usuario pertenece a un equipo (`Team`) y la información se aisla por equipo.
-- **Importación**:
-    - Facturas: Carga masiva de XML.
-    - Movimientos: Carga de estados de cuenta (Soporte inicial para BBVA, estructura extensible).
-- **Conciliación**:
-    - **Automática**: Algoritmo inteligente que busca coincidencias por monto y fecha (con tolerancia).
-    - **Manual**: Interfaz "Workbench" para seleccionar y cruzar facturas con movimientos.
-- **Historial**: Registro de todas las conciliaciones realizadas.
+## Requisitos
 
-## Tech Stack
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) corriendo
 
-- **Backend**: Laravel 12 (PHP 8.5)
-- **Frontend**: Vue 3 + Inertia.js v2
-- **Estilos**: Tailwind CSS 3
-- **Database**: MySQL 8.4 (Dockerizado vía Sail)
-- **Colas**: Laravel Queues (driver `database`) – colas `imports`, `exports`, `default`
-- **Cache/Session**: Database
-- **Container**: Laravel Sail (Docker)
+---
 
-## Requisitos Previos
-
-- Docker Desktop corriendo.
-- PHP 8.5+ (Opcional si se usa Sail para todo).
-
-## Configuración del Entorno
-
-Copiar `.env.example` a `.env` y ajustar los valores:
+## Configuración inicial
 
 ```bash
+# 1. Copiar variables de entorno
 cp .env.example .env
+
+# 2. Instalar dependencias PHP (usa Docker, no requiere PHP local)
+docker run --rm -v "$(pwd):/var/www/html" -w /var/www/html composer:latest composer install --ignore-platform-reqs --no-interaction
+
+# 3. Levantar todos los contenedores
+./vendor/bin/sail up -d
+
+# 4. Generar clave de aplicación
+./vendor/bin/sail artisan key:generate
+
+# 5. Ejecutar migraciones
+./vendor/bin/sail artisan migrate
+
+# 6. Compilar assets del frontend
+./vendor/bin/sail npm install && ./vendor/bin/sail npm run build
 ```
 
-El archivo `.env.example` incluye documentación inline de cada variable. Las más importantes:
+La app estará disponible en **http://localhost**
 
-| Variable | Descripción | Ejemplo Dev |
-|---|---|---|
-| `DB_CONNECTION` | Driver de BD | `mysql` |
-| `DB_HOST` | Host de MySQL | `mysql` (Sail) |
-| `QUEUE_CONNECTION` | Driver de colas | `database` |
-| `MAIL_MAILER` | Driver de correo | `smtp` (Mailpit en dev) |
-| `APP_PORT` | Puerto de la app (Sail) | `8085` |
-| `VITE_PORT` | Puerto de Vite HMR | `5174` |
+---
 
-## Instalación (Desarrollo Local)
+## Servicios incluidos
 
-1. Clonar repositorio y configurar entorno:
-    ```bash
-    git clone <repo-url> && cd conciliacion
-    cp .env.example .env
-    ```
-2. Instalar dependencias PHP (primera vez sin Sail):
-    ```bash
-    docker run --rm -v $(pwd):/var/www/html -w /var/www/html laravelsail/php85-composer:latest composer install --ignore-platform-reqs
-    ```
-3. Iniciar contenedores:
-    ```bash
-    ./vendor/bin/sail up -d
-    ```
-4. Generar clave de aplicación:
-    ```bash
-    ./vendor/bin/sail artisan key:generate
-    ```
-5. Instalar dependencias Node:
-    ```bash
-    ./vendor/bin/sail npm install
-    ```
-6. Ejecutar migraciones:
-    ```bash
-    ./vendor/bin/sail artisan migrate
-    ```
-7. Compilar assets (modo desarrollo con HMR):
-    ```bash
-    ./vendor/bin/sail npm run dev
-    ```
+| Servicio        | Descripción                              | Puerto |
+| --------------- | ---------------------------------------- | ------ |
+| `laravel.test`  | App principal (PHP 8.5)                  | 80     |
+| `mysql`         | Base de datos MySQL 8.4                  | 3306   |
+| `redis`         | Cache y colas                            | 6379   |
+| `mailpit`       | Captura de emails (desarrollo)           | 8025   |
+| `queue-imports` | Worker: procesa XMLs y estados de cuenta | —      |
+| `queue-exports` | Worker: genera reportes Excel/PDF        | —      |
 
-La app estará en `http://localhost` (o el `APP_PORT` configurado).
+> Los workers de cola se inician **automáticamente** con `sail up`.
 
-### Servicios Docker incluidos
+---
 
-| Servicio | Puerto por defecto | Configurable con |
-|---|---|---|
-| App (Laravel) | `80` | `APP_PORT` |
-| Vite HMR | `5173` | `VITE_PORT` |
-| MySQL 8.4 | `3306` | `FORWARD_DB_PORT` |
-| Redis | `6379` | `FORWARD_REDIS_PORT` |
-| Mailpit (SMTP) | `1025` | `FORWARD_MAILPIT_PORT` |
-| Mailpit (UI) | `8025` | `FORWARD_MAILPIT_DASHBOARD_PORT` |
-
-### Queue Worker (ya incluido en Docker)
-
-El `compose.yaml` incluye un servicio `queue` que ejecuta automáticamente:
+## Comandos útiles
 
 ```bash
-php artisan queue:work --queue=default,imports,exports --sleep=3 --tries=3
+# Detener contenedores
+./vendor/bin/sail stop
+
+# Ver logs de los workers
+docker logs conciliacion-bancaria-queue-imports-1 -f
+docker logs conciliacion-bancaria-queue-exports-1 -f
+
+# Acceder al shell del contenedor
+./vendor/bin/sail shell
+
+# Correr tests
+./vendor/bin/sail artisan test --compact
 ```
 
-No necesitas lanzar workers manualmente en desarrollo.
+---
 
 ## Despliegue en Producción
 
 ### Requisitos del servidor
 
-- PHP 8.5+ con extensiones: `pdo_mysql`, `mbstring`, `xml`, `curl`, `zip`, `gd`, `phpredis` (opcional)
+- PHP 8.5+ con extensiones: `pdo_mysql`, `mbstring`, `xml`, `curl`, `zip`, `gd`, `phpredis`
 - MySQL 8.0+
+- Redis
 - Composer 2+
 - Node.js 18+ y npm (solo para build)
 - Nginx o Apache
@@ -128,12 +97,14 @@ APP_ENV=production
 APP_DEBUG=false
 APP_URL=https://tu-dominio.com
 
-DB_HOST=127.0.0.1
-DB_DATABASE=conciliacion_prod
-DB_USERNAME=tu_usuario
-DB_PASSWORD=tu_password_seguro
+DB_HOST=tu-host-db
+DB_DATABASE=nombre_db
+DB_USERNAME=usuario
+DB_PASSWORD=contraseña_segura
 
-QUEUE_CONNECTION=database
+REDIS_HOST=tu-host-redis
+QUEUE_CONNECTION=redis
+CACHE_STORE=redis
 
 LOG_LEVEL=error
 
@@ -259,9 +230,13 @@ php artisan view:cache
 sudo supervisorctl restart conciliacion-imports:* conciliacion-exports:* conciliacion-default:*
 ```
 
-## Uso
+> **Importante:** Los workers `queue-imports` y `queue-exports` deben estar corriendo para que la importación de archivos y la generación de reportes funcionen.
 
-1. Registrarse (creará un Team por defecto).
-2. Ir a "Mesa de Trabajo" (Reconciliation).
-3. Subir archivos XML y Estado de Cuenta.
-4. Usar "Auto Conciliar" o seleccionar manualmente.
+---
+
+## Primera vez en la app
+
+1. Registrarse (se crea un equipo por defecto).
+2. Ir a **Formatos Bancarios** y crear el formato de tu banco (ej. BBVA).
+3. Ir a **Mesa de Trabajo** → cargar XMLs y estados de cuenta.
+4. Usar **Auto Conciliar** o seleccionar manualmente.

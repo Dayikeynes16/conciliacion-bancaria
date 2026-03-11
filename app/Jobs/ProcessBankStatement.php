@@ -48,7 +48,6 @@ class ProcessBankStatement implements ShouldQueue
             $ext = pathinfo($this->archivo->path, PATHINFO_EXTENSION) ?: 'xlsx';
             $tempPath = sys_get_temp_dir().'/statement_'.Str::random(10).'.'.$ext;
             file_put_contents($tempPath, Storage::get($this->archivo->path));
-            $fullPath = $tempPath;
 
             // Retrieve Bank via Archivo relationship
             $this->archivo->load('banco', 'bankFormat');
@@ -72,7 +71,7 @@ class ProcessBankStatement implements ShouldQueue
                 $parser = StatementParserFactory::make($this->archivo->banco->codigo, $this->teamId);
             }
 
-            $movements = $parser->parse($fullPath);
+            $movements = $parser->parse($tempPath);
 
             if (empty($movements)) {
                 throw new \Exception('El archivo fue procesado pero no se encontraron movimientos válidos. Verifique la configuración del formato.');

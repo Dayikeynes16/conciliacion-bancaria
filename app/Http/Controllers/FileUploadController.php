@@ -5,13 +5,11 @@ namespace App\Http\Controllers;
 use App\Jobs\ProcessBankStatement;
 use App\Jobs\ProcessXmlUpload;
 use App\Models\Archivo;
-use App\Models\Banco;
 use App\Models\Factura;
 use App\Services\Parsers\StatementParserFactory;
 use App\Services\Xml\CfdiParserService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -153,10 +151,12 @@ class FileUploadController extends Controller
                     // 1. Resolve BankFormat (must belong to current team)
                     $format = \App\Models\BankFormat::where('team_id', auth()->user()->current_team_id)->find($bankCode);
 
-                    if ($format) {
-                        $bankFormatId = $format->id;
-                        $bancoId = $format->banco_id;
+                    if (! $format) {
+                        throw new \Exception('El formato bancario seleccionado no existe.');
                     }
+
+                    $bankFormatId = $format->id;
+                    $bancoId = $format->banco_id;
 
                     // 2. If format has no banco linked, fail explicitly.
                     if (! $bancoId) {
