@@ -150,8 +150,17 @@ const fileExtension = (name?: string) => {
                                 </span>
                             </div>
                         </th>
-                        <th scope="col" class="py-3 px-6">
-                            {{ $t("ESTADO") }}
+                        <th
+                            scope="col"
+                            class="px-6 py-3 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
+                            @click="emit('sort', 'estado')"
+                        >
+                            <div class="flex items-center gap-1">
+                                {{ $t("ESTADO") }}
+                                <span v-if="sortColumn === 'estado'">
+                                    {{ sortDirection === "asc" ? "↑" : "↓" }}
+                                </span>
+                            </div>
                         </th>
                         <th scope="col" class="py-3 px-6 text-right">
                             {{ $t("ACCIONES") }}

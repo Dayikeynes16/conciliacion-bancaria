@@ -68,6 +68,9 @@ class FacturaController extends Controller
             $query->orderBy('facturas.monto', $direction);
         } elseif ($sort === 'fecha_emision') {
             $query->orderBy('facturas.fecha_emision', $direction);
+        } elseif ($sort === 'estado') {
+            $dir = strtolower($direction) === 'asc' ? 'ASC' : 'DESC';
+            $query->orderByRaw("(SELECT COUNT(*) FROM conciliacions WHERE conciliacions.factura_id = facturas.id) {$dir}");
         } elseif ($sort === 'tipo') {
             $dir = strtolower($direction) === 'asc' ? 'ASC' : 'DESC';
             $query->orderByRaw("CASE WHEN facturas.tipo_comprobante = 'P' THEN 'Complemento' WHEN facturas.metodo_pago = 'PUE' THEN 'PUE' ELSE COALESCE(facturas.metodo_pago, 'ZZZ') END {$dir}");
