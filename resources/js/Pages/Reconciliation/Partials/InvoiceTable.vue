@@ -151,9 +151,6 @@ const fileExtension = (name?: string) => {
                             </div>
                         </th>
                         <th scope="col" class="py-3 px-6">
-                            {{ $t("ARCHIVO") }}
-                        </th>
-                        <th scope="col" class="py-3 px-6">
                             {{ $t("ESTADO") }}
                         </th>
                         <th scope="col" class="py-3 px-6 text-right">
@@ -181,7 +178,10 @@ const fileExtension = (name?: string) => {
                             {{ file.factura?.rfc || "N/A" }}
                         </td>
                         <td class="py-4 px-6">
-                            {{ file.factura?.nombre || "N/A" }}
+                            <div>{{ file.factura?.nombre || "N/A" }}</div>
+                            <div v-if="file.original_name" class="text-xs text-gray-400 dark:text-gray-500 mt-0.5 break-all leading-tight">
+                                {{ file.original_name }}
+                            </div>
                         </td>
                         <td class="py-4 px-6 font-mono font-medium">
                             {{
@@ -200,16 +200,6 @@ const fileExtension = (name?: string) => {
                             >
                                 {{ tipoLabel(file.factura) }}
                             </span>
-                        </td>
-                        <td class="py-4 px-6">
-                            <span
-                                v-if="file.original_name"
-                                class="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[150px] inline-block"
-                                :title="file.original_name"
-                            >
-                                {{ file.original_name }}
-                            </span>
-                            <span v-else class="text-xs text-gray-400">—</span>
                         </td>
                         <td class="py-4 px-6">
                             <span
