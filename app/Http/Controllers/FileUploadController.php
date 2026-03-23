@@ -11,7 +11,6 @@ use App\Services\Xml\CfdiParserService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class FileUploadController extends Controller
@@ -245,7 +244,8 @@ class FileUploadController extends Controller
                 // success = true only if at least one file was processed (or a statement was queued).
                 // If every uploaded file failed, we return success=false so the frontend can react.
                 $statementQueued = collect($toasts)->contains(fn ($t) => $t['type'] === 'success');
-                $anySuccess = $results['xml_processed'] > 0 || $statementQueued || $results['xml_xml_duplicates'] > 0;
+                $statementDuplicate = collect($toasts)->contains(fn ($t) => $t['type'] === 'warning');
+                $anySuccess = $results['xml_processed'] > 0 || $statementQueued || $statementDuplicate || $results['xml_xml_duplicates'] > 0;
 
                 return response()->json([
                     'success' => $anySuccess,

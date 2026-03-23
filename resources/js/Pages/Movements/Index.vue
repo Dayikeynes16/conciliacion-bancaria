@@ -5,7 +5,7 @@ import SecondaryButton from "@/Components/SecondaryButton.vue";
 import ConfirmationModal from "@/Components/ConfirmationModal.vue";
 import PrimaryButton from "@/Components/PrimaryButton.vue";
 import { Head, router, useForm, Link } from "@inertiajs/vue3";
-import { ref, computed, reactive, onUnmounted } from "vue";
+import { ref, computed, reactive, watch, onUnmounted } from "vue";
 import axios from "axios";
 import MovementFilters from "@/Pages/Reconciliation/Partials/MovementFilters.vue";
 import MovementTable from "@/Pages/Reconciliation/Partials/MovementTable.vue";
@@ -16,6 +16,8 @@ const props = defineProps<{
         path: string;
         original_name?: string;
         created_at: string;
+        estatus: string;
+        is_offline?: boolean;
         banco?: { nombre: string };
         bank_format?: { name: string; color: string };
         movimientos_count: number;
@@ -69,7 +71,32 @@ let activeAbortController: AbortController | null = null;
 
 onUnmounted(() => {
     activeAbortController?.abort();
+    if (pollInterval.value) clearInterval(pollInterval.value);
 });
+
+// Auto-polling: refresh files every 5s while any file is still processing
+const pollInterval = ref<ReturnType<typeof setInterval> | null>(null);
+
+const hasPendingFiles = computed(() =>
+    props.files.some(
+        (f) => f.estatus === "pendiente" || f.estatus === "procesando",
+    ),
+);
+
+watch(
+    hasPendingFiles,
+    (pending) => {
+        if (pending && !pollInterval.value) {
+            pollInterval.value = setInterval(() => {
+                router.reload({ only: ["files", "movements"] });
+            }, 5000);
+        } else if (!pending && pollInterval.value) {
+            clearInterval(pollInterval.value);
+            pollInterval.value = null;
+        }
+    },
+    { immediate: true },
+);
 
 const form = useForm({
     file: null as File | null,
@@ -495,9 +522,60 @@ const formatDateNoTime = (date?: string) => {
                                             </td>
                                             <td class="py-4 px-6">
                                                 <span
+                                                    v-if="
+                                                        file.is_offline
+                                                    "
+                                                    class="inline-flex items-center gap-1 bg-red-100 text-red-800 text-xs font-semibold px-2.5 py-0.5 rounded dark:bg-red-900/30 dark:text-red-400"
+                                                >
+                                                    Worker Offline?
+                                                </span>
+                                                <span
+                                                    v-else-if="
+                                                        file.estatus ===
+                                                            'pendiente' ||
+                                                        file.estatus ===
+                                                            'procesando'
+                                                    "
+                                                    class="inline-flex items-center gap-1 bg-amber-100 text-amber-800 text-xs font-semibold px-2.5 py-0.5 rounded dark:bg-amber-900/30 dark:text-amber-400"
+                                                >
+                                                    <svg
+                                                        class="animate-spin h-3 w-3"
+                                                        xmlns="http://www.w3.org/2000/svg"
+                                                        fill="none"
+                                                        viewBox="0 0 24 24"
+                                                    >
+                                                        <circle
+                                                            class="opacity-25"
+                                                            cx="12"
+                                                            cy="12"
+                                                            r="10"
+                                                            stroke="currentColor"
+                                                            stroke-width="4"
+                                                        ></circle>
+                                                        <path
+                                                            class="opacity-75"
+                                                            fill="currentColor"
+                                                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                                                        ></path>
+                                                    </svg>
+                                                    Procesando...
+                                                </span>
+                                                <span
+                                                    v-else-if="
+                                                        file.estatus ===
+                                                        'fallido'
+                                                    "
+                                                    class="inline-flex items-center gap-1 bg-red-100 text-red-800 text-xs font-semibold px-2.5 py-0.5 rounded dark:bg-red-900/30 dark:text-red-400"
+                                                >
+                                                    Error
+                                                </span>
+                                                <span
+                                                    v-else
                                                     class="bg-gray-100 text-gray-800 text-xs font-semibold mr-2 px-2.5 py-0.5 rounded dark:bg-gray-700 dark:text-gray-300"
                                                 >
-                                                    {{ file.movimientos_count }}
+                                                    {{
+                                                        file.movimientos_count
+                                                    }}
                                                 </span>
                                             </td>
                                             <td class="py-4 px-6">

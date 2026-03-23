@@ -25,7 +25,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
-    Route::post('/upload/files', [App\Http\Controllers\FileUploadController::class, 'store'])->middleware('throttle:30,1')->name('upload.store');
+    Route::post('/upload/files', [App\Http\Controllers\FileUploadController::class, 'store'])->name('upload.store');
 
     // Team Management
     Route::resource('teams', App\Http\Controllers\TeamController::class)->only(['create', 'store', 'update']);

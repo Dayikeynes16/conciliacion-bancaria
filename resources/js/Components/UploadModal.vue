@@ -189,9 +189,30 @@ const processQueue = async () => {
                 }
             }
         } catch (error) {
-            console.error(error);
+            console.error(
+                `Upload error for ${file.name}:`,
+                error.response?.status,
+                error.response?.data,
+            );
             uploadState.errorCount++;
-            uploadState.logs.push(`Error de servidor: ${file.name}`);
+
+            const status = error.response?.status;
+            const serverMessage =
+                error.response?.data?.message ||
+                error.response?.data?.results?.file_errors?.[0] ||
+                null;
+
+            if (status === 419) {
+                uploadState.logs.push(
+                    `${file.name}: Sesión expirada (419). Recarga la página e intenta de nuevo.`,
+                );
+            } else if (serverMessage) {
+                uploadState.logs.push(`${file.name}: ${serverMessage}`);
+            } else {
+                uploadState.logs.push(
+                    `Error de servidor (${status || "red"}): ${file.name}`,
+                );
+            }
         }
 
         // Small delay to prevent network congestion
@@ -241,8 +262,25 @@ const processQueue = async () => {
                     );
                 }
             } else {
-                uploadState.errorCount++;
-                uploadState.logs.push(`Estado de Cuenta: Falló la solicitud`);
+                // success=false but toasts may contain the actual reason
+                const toasts = response.data.toasts || [];
+                const errorToast = toasts.find((t) => t.type === "error");
+                const warningToast = toasts.find(
+                    (t) => t.type === "warning",
+                );
+
+                if (warningToast) {
+                    uploadState.duplicateCount++;
+                    uploadState.logs.push(warningToast.message);
+                } else if (errorToast) {
+                    uploadState.errorCount++;
+                    uploadState.logs.push(errorToast.message);
+                } else {
+                    uploadState.errorCount++;
+                    uploadState.logs.push(
+                        `Estado de Cuenta: Falló la solicitud`,
+                    );
+                }
             }
         } catch (error) {
             console.error(error);

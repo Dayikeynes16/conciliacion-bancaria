@@ -85,7 +85,6 @@ class ProcessBankStatement implements ShouldQueue
                     $hash = hash('sha256', json_encode([
                         'fecha' => $movData['fecha'],
                         'monto' => $movData['monto'],
-                        'referencia' => $movData['referencia'],
                         'descripcion' => $movData['descripcion'],
                     ]));
 

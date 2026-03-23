@@ -105,6 +105,10 @@ Recurso principal para la operación de cruce.
     - **Paso 2 (Feedback):** Retorna estado `duplicado` inmediatamente si existe.
     - **Paso 3 (Asíncrono):** Si es nuevo, encola `ProcessXmlUpload` y retorna `queued` (tratado como éxito visual).
     - **Soft Deletes:** No activados en Facturas. Borrar permite re-importar.
+- **Manejo de Errores (Respuesta JSON):**
+    - **Try-catch interno (por archivo):** Captura errores de parseo, validación RFC, duplicados. Retorna `200` con `results.file_errors[]` y contadores.
+    - **Try-catch externo (global):** Captura errores inesperados (DB, sesión). Retorna `500` con `{ message: "..." }`.
+    - **Frontend (`UploadModal.vue`):** El catch de axios lee `error.response.data.message` y `error.response.status` para mostrar el error real. Identifica 419 (sesión expirada) como caso especial.
 
 #### `App\Jobs\GenerateReconciliation[Excel|Pdf]ExportJob`
 
@@ -153,6 +157,8 @@ Listado de cargas bancarias.
 - **Funcionalidad:**
     - Tiene un toggle `viewMode` ('files' vs 'movements').
     - Usa `MovementTable.vue` para la vista detallada.
+    - **Indicador de Procesamiento:** La columna MOVIMIENTOS muestra badges según `estatus` del archivo: "Procesando..." (amber con spinner) para `pendiente`/`procesando`, "Error" (rojo) para `fallido`, "Worker Offline?" para archivos pendientes >2min, o el conteo numérico para `procesado`.
+    - **Auto-polling:** Mientras existan archivos con `estatus` `pendiente` o `procesando`, la página refresca automáticamente cada 5 segundos vía `router.reload()`. El polling se detiene cuando todos los archivos terminan de procesar.
     - Permite eliminar archivos completos (`App\Models\Archivo` tiene borrado en cascada).
 
 ---
@@ -225,7 +231,7 @@ Basado en evidencia de `/database/migrations`. Todas las tablas principales tien
 
 - **Duplicidad:**
     - Archivos: Se calcula `checksum` (MD5/SHA) del archivo físico.
-    - Movimientos: Se genera hash (`fecha+monto+tipo+ref`) para evitar re-importar la misma línea de bamco.
+    - Movimientos: Se genera hash (`sha256(json_encode(fecha + monto + descripcion))`) con 3 campos para evitar re-importar la misma línea de banco. La `referencia` se excluye del hash porque puede cambiar entre exportaciones bancarias para la misma transacción.
 
 ---
 
