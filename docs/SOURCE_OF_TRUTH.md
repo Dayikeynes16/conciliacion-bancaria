@@ -231,7 +231,7 @@ Basado en evidencia de `/database/migrations`. Todas las tablas principales tien
 
 - **Duplicidad:**
     - Archivos: Se calcula `checksum` (MD5/SHA) del archivo físico.
-    - Movimientos: Se genera hash (`sha256(json_encode(fecha + monto + descripcion))`) con 3 campos para evitar re-importar la misma línea de banco. La `referencia` se excluye del hash porque puede cambiar entre exportaciones bancarias para la misma transacción.
+    - Movimientos: Deduplicación por comparación directa de columnas (`WHERE team_id = ? AND fecha = ? AND monto = ? AND descripcion = ?`). El índice `movimientos_dedup_index` optimiza esta consulta. La columna `hash` se mantiene por compatibilidad pero la deduplicación no depende de ella.
 
 ---
 

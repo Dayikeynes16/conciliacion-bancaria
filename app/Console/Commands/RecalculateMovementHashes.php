@@ -51,7 +51,7 @@ class RecalculateMovementHashes extends Command
             foreach ($movements as $movement) {
                 $newHash = hash('sha256', json_encode([
                     'fecha' => $movement->fecha->format('Y-m-d'),
-                    'monto' => $movement->monto,
+                    'monto' => number_format((float) $movement->monto, 2, '.', ''),
                     'descripcion' => $movement->descripcion,
                 ]));
 

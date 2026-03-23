@@ -79,17 +79,12 @@ class ProcessBankStatement implements ShouldQueue
 
             DB::transaction(function () use ($movements) {
                 foreach ($movements as $movData) {
-                    // Generate hash for duplicate detection.
-                    // Use SHA256 with json_encode to avoid collisions from string concatenation
-                    // (e.g. fecha="2024-01-1" monto="01000" vs fecha="2024-01-10" monto="1000").
-                    $hash = hash('sha256', json_encode([
-                        'fecha' => $movData['fecha'],
-                        'monto' => $movData['monto'],
-                        'descripcion' => $movData['descripcion'],
-                    ]));
-
+                    // Duplicate detection: direct column comparison instead of hash.
+                    // This is resilient to algorithm changes and type mismatches.
                     $exists = Movimiento::where('team_id', $this->teamId)
-                        ->where('hash', $hash)
+                        ->where('fecha', $movData['fecha'])
+                        ->where('monto', $movData['monto'])
+                        ->where('descripcion', $movData['descripcion'])
                         ->exists();
 
                     if (! $exists) {
@@ -103,7 +98,11 @@ class ProcessBankStatement implements ShouldQueue
                             'tipo' => $movData['tipo'],
                             'referencia' => $movData['referencia'],
                             'descripcion' => $movData['descripcion'],
-                            'hash' => $hash,
+                            'hash' => hash('sha256', json_encode([
+                                'fecha' => $movData['fecha'],
+                                'monto' => number_format((float) $movData['monto'], 2, '.', ''),
+                                'descripcion' => $movData['descripcion'],
+                            ])),
                         ]);
                     }
                 }

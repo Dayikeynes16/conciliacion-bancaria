@@ -168,7 +168,27 @@ class DynamicStatementParser extends AbstractBankParser
             return Date::excelToDateTimeObject($value)->format('Y-m-d');
         }
         try {
-            return Carbon::parse($value)->format('Y-m-d');
+            $trimmed = trim($value);
+
+            // DD/MM/YY (2-digit year, e.g. 26/01/26)
+            if (preg_match('#^\d{1,2}/\d{1,2}/\d{2}$#', $trimmed)) {
+                return Carbon::createFromFormat('d/m/y', $trimmed)->format('Y-m-d');
+            }
+            // DD/MM/YYYY (4-digit year, e.g. 26/01/2026)
+            if (preg_match('#^\d{1,2}/\d{1,2}/\d{4}$#', $trimmed)) {
+                return Carbon::createFromFormat('d/m/Y', $trimmed)->format('Y-m-d');
+            }
+            // DD-MM-YY
+            if (preg_match('#^\d{1,2}-\d{1,2}-\d{2}$#', $trimmed)) {
+                return Carbon::createFromFormat('d-m-y', $trimmed)->format('Y-m-d');
+            }
+            // DD-MM-YYYY
+            if (preg_match('#^\d{1,2}-\d{1,2}-\d{4}$#', $trimmed)) {
+                return Carbon::createFromFormat('d-m-Y', $trimmed)->format('Y-m-d');
+            }
+
+            // Fallback for other formats (YYYY-MM-DD, ISO, etc.)
+            return Carbon::parse($trimmed)->format('Y-m-d');
         } catch (\Exception $e) {
             return null;
         }

@@ -199,15 +199,11 @@ class FileUploadTest extends TestCase
         ]);
 
         foreach ($movements as $movData) {
-            // Exact same hash logic as ProcessBankStatement
-            $hash = hash('sha256', json_encode([
-                'fecha' => $movData['fecha'],
-                'monto' => $movData['monto'],
-                'descripcion' => $movData['descripcion'],
-            ]));
-
+            // Same dedup logic as ProcessBankStatement: direct column comparison
             $exists = Movimiento::where('team_id', $teamId)
-                ->where('hash', $hash)
+                ->where('fecha', $movData['fecha'])
+                ->where('monto', $movData['monto'])
+                ->where('descripcion', $movData['descripcion'])
                 ->exists();
 
             if (! $exists) {
@@ -221,7 +217,11 @@ class FileUploadTest extends TestCase
                     'tipo' => $movData['tipo'],
                     'referencia' => $movData['referencia'],
                     'descripcion' => $movData['descripcion'],
-                    'hash' => $hash,
+                    'hash' => hash('sha256', json_encode([
+                        'fecha' => $movData['fecha'],
+                        'monto' => number_format((float) $movData['monto'], 2, '.', ''),
+                        'descripcion' => $movData['descripcion'],
+                    ])),
                 ]);
             }
         }
