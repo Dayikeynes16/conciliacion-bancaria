@@ -162,9 +162,10 @@ class ReconciliationController extends Controller
             'invoice_ids' => 'required|array',
             'movement_ids' => 'required|array',
             'conciliacion_at' => 'nullable|date',
+            'confirm_multi_rfc' => 'nullable|boolean',
         ]);
 
-        // Validate RFC consistency locally & Ownership
+        // Ownership check
         $invoices = Factura::where('team_id', auth()->user()->current_team_id)
             ->whereIn('id', $request->invoice_ids)
             ->get();
@@ -172,14 +173,15 @@ class ReconciliationController extends Controller
         if ($invoices->count() !== count($request->invoice_ids)) {
             abort(403, 'Unauthorized access to some resources.');
         }
-        if ($invoices->count() > 1) {
+
+        // Multi-RFC guardrail: allowed only if user explicitly confirmed.
+        // Use case: Stripe payouts that bundle invoices from multiple taxpayers.
+        if ($invoices->count() > 1 && ! $request->boolean('confirm_multi_rfc')) {
             $firstRfc = $invoices->first()->rfc;
-            $mismatch = $invoices->some(function ($invoice) use ($firstRfc) {
-                return $invoice->rfc !== $firstRfc;
-            });
+            $mismatch = $invoices->contains(fn ($invoice) => $invoice->rfc !== $firstRfc);
 
             if ($mismatch) {
-                return back()->withErrors(['error' => 'Discrepancia de RFC: Todas las facturas seleccionadas deben pertenecer al mismo RFC receptor.']);
+                return back()->withErrors(['error' => 'Discrepancia de RFC: Las facturas seleccionadas pertenecen a distintos RFC receptores. Confirma explícitamente para continuar.']);
             }
         }
 

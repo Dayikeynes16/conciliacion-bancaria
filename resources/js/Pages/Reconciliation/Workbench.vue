@@ -33,6 +33,7 @@ const confirmationTitle = ref("");
 const showErrorModal = ref(false);
 const errorMessage = ref("");
 const errorTitle = ref("");
+const hasMultiRfcMismatch = ref(false);
 const reconciliationDate = ref(new Date().toISOString().split("T")[0]);
 // Track if the user manually edited the date — if so, don't overwrite it
 const userModifiedDate = ref(false);
@@ -174,11 +175,13 @@ const diff = computed(() => totalMovements.value - totalInvoices.value);
 const validateAndReconcile = () => {
     let warnings: string[] = [];
     let title = wTrans("Confirmar Conciliación").value;
+    hasMultiRfcMismatch.value = false;
 
     // Recalculate date one last time to be sure
     calculateBestDate();
 
-    // 1. RFC Consistency Check
+    // 1. RFC Consistency Check — warn, don't block.
+    // Supports Stripe-style payouts that bundle invoices from multiple taxpayers.
     const selectedInvoiceObjects = props.invoices.filter((i) =>
         selectedInvoices.value.includes(i.id),
     );
@@ -189,12 +192,10 @@ const validateAndReconcile = () => {
         );
 
         if (hasMismatch) {
-            errorTitle.value = wTrans("Error de RFC").value;
-            errorMessage.value = wTrans(
-                "Las facturas seleccionadas deben pertenecer al mismo RFC receptor.",
-            ).value;
-            showErrorModal.value = true;
-            return;
+            hasMultiRfcMismatch.value = true;
+            warnings.push(
+                `⚠ ${wTrans("Múltiples RFC").value}:\n${wTrans("Las facturas seleccionadas pertenecen a distintos RFC receptores. Confirma que este pago corresponde a más de un contribuyente.").value}`,
+            );
         }
     }
 
@@ -242,11 +243,13 @@ const submitReconciliation = () => {
 
             movement_ids: selectedMovements.value,
             conciliacion_at: reconciliationDate.value,
+            confirm_multi_rfc: hasMultiRfcMismatch.value,
         },
         {
             onSuccess: () => {
                 selectedInvoices.value = [];
                 selectedMovements.value = [];
+                hasMultiRfcMismatch.value = false;
             },
             onFinish: () => {
                 processing.value = false;

@@ -163,6 +163,140 @@ test('manual reconciliation stores record', function () {
     ]);
 });
 
+test('multi-rfc reconciliation is blocked without confirmation', function () {
+    $user = User::factory()->create();
+    $team = Team::forceCreate(['user_id' => $user->id, 'name' => 'Test Team', 'personal_team' => true]);
+    $user->current_team_id = $team->id;
+    $user->save();
+
+    $archivo = Archivo::forceCreate([
+        'user_id' => $user->id,
+        'team_id' => $team->id,
+        'path' => 'dummy.xml',
+        'mime' => 'application/xml',
+        'size' => 123,
+        'checksum' => 'hash',
+        'estatus' => 'processed',
+    ]);
+
+    $banco = Banco::forceCreate(['nombre' => 'Bank', 'codigo' => 'B001']);
+
+    $facturaA = Factura::create([
+        'user_id' => $user->id,
+        'team_id' => $team->id,
+        'file_id_xml' => $archivo->id,
+        'uuid' => 'UUID-A',
+        'monto' => 300.00,
+        'fecha_emision' => '2026-01-10',
+        'rfc' => 'RFC-AAA',
+        'nombre' => 'Client A',
+    ]);
+
+    $facturaB = Factura::create([
+        'user_id' => $user->id,
+        'team_id' => $team->id,
+        'file_id_xml' => $archivo->id,
+        'uuid' => 'UUID-B',
+        'monto' => 200.00,
+        'fecha_emision' => '2026-01-11',
+        'rfc' => 'RFC-BBB',
+        'nombre' => 'Client B',
+    ]);
+
+    $movimiento = Movimiento::create([
+        'user_id' => $user->id,
+        'team_id' => $team->id,
+        'banco_id' => $banco->id,
+        'file_id' => $archivo->id,
+        'fecha' => '2026-01-12',
+        'monto' => 500.00,
+        'tipo' => 'abono',
+        'descripcion' => 'Stripe Payout',
+        'hash' => 'hash-multi-blocked',
+    ]);
+
+    $response = $this->actingAs($user)
+        ->post(route('reconciliation.store'), [
+            'invoice_ids' => [$facturaA->id, $facturaB->id],
+            'movement_ids' => [$movimiento->id],
+        ]);
+
+    $response->assertSessionHasErrors('error');
+    $this->assertDatabaseCount('conciliacions', 0);
+});
+
+test('multi-rfc reconciliation succeeds when explicitly confirmed', function () {
+    $user = User::factory()->create();
+    $team = Team::forceCreate(['user_id' => $user->id, 'name' => 'Test Team', 'personal_team' => true]);
+    $user->current_team_id = $team->id;
+    $user->save();
+
+    $archivo = Archivo::forceCreate([
+        'user_id' => $user->id,
+        'team_id' => $team->id,
+        'path' => 'dummy.xml',
+        'mime' => 'application/xml',
+        'size' => 123,
+        'checksum' => 'hash',
+        'estatus' => 'processed',
+    ]);
+
+    $banco = Banco::forceCreate(['nombre' => 'Bank', 'codigo' => 'B001']);
+
+    $facturaA = Factura::create([
+        'user_id' => $user->id,
+        'team_id' => $team->id,
+        'file_id_xml' => $archivo->id,
+        'uuid' => 'UUID-A2',
+        'monto' => 300.00,
+        'fecha_emision' => '2026-01-10',
+        'rfc' => 'RFC-AAA',
+        'nombre' => 'Client A',
+    ]);
+
+    $facturaB = Factura::create([
+        'user_id' => $user->id,
+        'team_id' => $team->id,
+        'file_id_xml' => $archivo->id,
+        'uuid' => 'UUID-B2',
+        'monto' => 200.00,
+        'fecha_emision' => '2026-01-11',
+        'rfc' => 'RFC-BBB',
+        'nombre' => 'Client B',
+    ]);
+
+    $movimiento = Movimiento::create([
+        'user_id' => $user->id,
+        'team_id' => $team->id,
+        'banco_id' => $banco->id,
+        'file_id' => $archivo->id,
+        'fecha' => '2026-01-12',
+        'monto' => 500.00,
+        'tipo' => 'abono',
+        'descripcion' => 'Stripe Payout',
+        'hash' => 'hash-multi-ok',
+    ]);
+
+    $response = $this->actingAs($user)
+        ->post(route('reconciliation.store'), [
+            'invoice_ids' => [$facturaA->id, $facturaB->id],
+            'movement_ids' => [$movimiento->id],
+            'confirm_multi_rfc' => true,
+        ]);
+
+    $response->assertRedirect();
+    $response->assertSessionHas('success');
+
+    $this->assertDatabaseHas('conciliacions', [
+        'factura_id' => $facturaA->id,
+        'movimiento_id' => $movimiento->id,
+    ]);
+    $this->assertDatabaseHas('conciliacions', [
+        'factura_id' => $facturaB->id,
+        'movimiento_id' => $movimiento->id,
+    ]);
+});
+
 test('cannot reconcile items from another team', function () {
     $user = User::factory()->create();
     $team = Team::forceCreate(['user_id' => $user->id, 'name' => 'My Team', 'personal_team' => true]);
